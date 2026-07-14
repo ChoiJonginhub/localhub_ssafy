@@ -51,20 +51,21 @@ function connectSocket() {
     reconnectTimer.value = null
   }
 
-  const clientId = window.localStorage.getItem('board-client-id') || `client-${Date.now()}`
-  window.localStorage.setItem('board-client-id', clientId)
+  const clientId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  window.sessionStorage.setItem('board-client-id', clientId)
   const ws = new WebSocket(`ws://localhost:8000/ws/notifications?client_id=${encodeURIComponent(clientId)}`)
   socket.value = ws
 
   ws.addEventListener('open', () => {
-    onlineCount.value = 1
+    onlineCount.value = onlineCount.value
   })
 
   ws.addEventListener('message', (event) => {
     try {
       const payload = JSON.parse(event.data)
       if (payload.type === 'presence') {
-        onlineCount.value = payload.count
+        const nextCount = Number(payload.count) || 0
+        onlineCount.value = Math.max(nextCount, 0)
         return
       }
 

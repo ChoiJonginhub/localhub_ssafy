@@ -1,11 +1,12 @@
 from datetime import datetime
-from typing import Any, Generator, List
+from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, DateTime, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+
+from database import Post, get_db
+from routers import chat
 
 app = FastAPI(title="Localhub Anonymous Community API")
 
@@ -17,25 +18,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = "sqlite:///./community.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+app.include_router(chat.router)
 
 
-class Post(Base):
-    __tablename__ = "posts"
-
-    id = Column(Integer, primary_key=True, index=True)
-    category = Column(String(50), nullable=False, index=True)
-    title = Column(String(200), nullable=False)
-    content = Column(String(2000), nullable=False)
-    password = Column(String(100), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+class PostCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1, max_length=2000)
+    password: str = Field(min_length=1, max_length=100)
 
 
-Base.metadata.create_all(bind=engine)
+class PostUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1, max_length=2000)
+    password: str = Field(min_length=1, max_length=100)
+
+
+class PostDelete(BaseModel):
+    password: str = Field(min_length=1, max_length=100)
 
 
 class PostResponse(BaseModel):
@@ -111,29 +110,6 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
-
-
-class PostCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    content: str = Field(min_length=1, max_length=2000)
-    password: str = Field(min_length=1, max_length=100)
-
-
-class PostUpdate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    content: str = Field(min_length=1, max_length=2000)
-    password: str = Field(min_length=1, max_length=100)
-
-
-class PostDelete(BaseModel):
-    password: str = Field(min_length=1, max_length=100)
-
-def get_db() -> Generator:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @app.get("/")
