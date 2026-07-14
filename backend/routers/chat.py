@@ -119,14 +119,9 @@ class ChatMessageResponse(BaseModel):
 
 
 def _converse(messages: list, db: Session, max_turns: int = 4) -> str:
-<<<<<<< HEAD
-    """도구 호출 루프: Claude가 tool_use를 반환하면 실행하고 결과를 다시 넘겨 최종 답변을 받는다."""
-    if client is None:
-        return "현재 AI 서비스 키가 설정되어 있지 않아 답변을 생성할 수 없습니다."
-
-=======
+    
     """도구 호출 루프: 모델이 tool_calls를 반환하면 실행하고 결과를 다시 넘겨 최종 답변을 받는다."""
->>>>>>> 710a4ef (open API 사용하도록 교체)
+
     for _ in range(max_turns):
         api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
 
