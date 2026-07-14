@@ -1,13 +1,18 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
 
 const category = 'seoul'
 const posts = ref([])
 const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const notificationMessage = ref('')
 const editingId = ref(null)
 const deletePasswords = ref({})
+const onlineCount = ref(0)
+const socket = ref(null)
+const reconnectTimer = ref(null)
+const lastNotificationId = ref(null)
 
 const form = ref({
   title: '',
@@ -34,6 +39,67 @@ async function fetchPosts() {
 function resetForm() {
   editingId.value = null
   form.value = { title: '', content: '', password: '' }
+}
+
+function connectSocket() {
+  if (socket.value && (socket.value.readyState === WebSocket.OPEN || socket.value.readyState === WebSocket.CONNECTING)) {
+    return
+  }
+
+  if (reconnectTimer.value) {
+    clearTimeout(reconnectTimer.value)
+    reconnectTimer.value = null
+  }
+
+  const clientId = window.localStorage.getItem('board-client-id') || `client-${Date.now()}`
+  window.localStorage.setItem('board-client-id', clientId)
+  const ws = new WebSocket(`ws://localhost:8000/ws/notifications?client_id=${encodeURIComponent(clientId)}`)
+  socket.value = ws
+
+  ws.addEventListener('open', () => {
+    onlineCount.value = 1
+  })
+
+  ws.addEventListener('message', (event) => {
+    try {
+      const payload = JSON.parse(event.data)
+      if (payload.type === 'presence') {
+        onlineCount.value = payload.count
+        return
+      }
+
+      if (payload.type === 'new_post') {
+        const incomingPost = payload.post
+        if (lastNotificationId.value === incomingPost.id) {
+          return
+        }
+        lastNotificationId.value = incomingPost.id
+        const exists = posts.value.some((post) => post.id === incomingPost.id)
+        if (!exists) {
+          posts.value = [incomingPost, ...posts.value]
+        }
+        notificationMessage.value = `새 게시글이 등록되었습니다: ${incomingPost.title}`
+        setTimeout(() => {
+          if (lastNotificationId.value === incomingPost.id) {
+            notificationMessage.value = ''
+          }
+        }, 4000)
+      }
+    } catch (error) {
+      console.error('WebSocket message parse error', error)
+    }
+  })
+
+  ws.addEventListener('close', () => {
+    socket.value = null
+    reconnectTimer.value = setTimeout(() => {
+      connectSocket()
+    }, 1000)
+  })
+
+  ws.addEventListener('error', () => {
+    console.error('WebSocket connection error')
+  })
 }
 
 function startEdit(post) {
@@ -114,6 +180,18 @@ async function deletePost(postId) {
 
 onMounted(() => {
   fetchPosts()
+  connectSocket()
+})
+
+onBeforeUnmount(() => {
+  if (reconnectTimer.value) {
+    clearTimeout(reconnectTimer.value)
+    reconnectTimer.value = null
+  }
+  if (socket.value) {
+    socket.value.close()
+    socket.value = null
+  }
 })
 </script>
 
@@ -122,6 +200,8 @@ onMounted(() => {
     <header>
       <h1>서울권역 익명 커뮤니티</h1>
       <p>회원가입 없이 익명으로 작성하고, 수정·삭제는 등록한 비밀번호로만 확인됩니다.</p>
+      <div class="status">현재 접속자: <strong>{{ onlineCount }}</strong>명</div>
+      <div v-if="notificationMessage" class="notification">{{ notificationMessage }}</div>
     </header>
 
     <section class="panel">
@@ -188,6 +268,21 @@ onMounted(() => {
 
 header {
   margin-bottom: 1.5rem;
+}
+
+.status {
+  margin-top: 0.5rem;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.notification {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 600;
 }
 
 .panel {
