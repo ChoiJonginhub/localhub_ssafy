@@ -1,7 +1,9 @@
+import json
 import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from openai import OpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -15,7 +17,10 @@ from services import tour_data
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
-client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY")) if Anthropic is not None else None
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+# 계정에서 사용 가능한 모델로 바꿔도 됨 (예: "gpt-4o", "gpt-4o-mini")
+MODEL_NAME = "gpt-5.6"
 
 SYSTEM_PROMPT = (
     "당신은 서울 지역 정보 안내 챗봇입니다. "
@@ -28,63 +33,69 @@ SYSTEM_PROMPT = (
 
 TOOLS = [
     {
-        "name": "search_local_info",
-        "description": "서울 지역의 관광지/레포츠/문화시설/쇼핑/숙박/여행코스/축제공연행사 정보를 검색합니다.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string",
-                    "enum": [
-                        "관광지",
-                        "레포츠",
-                        "문화시설",
-                        "쇼핑",
-                        "숙박",
-                        "여행코스",
-                        "축제공연행사",
-                    ],
-                    "description": "검색할 카테고리. 지정하지 않으면 전체 카테고리에서 검색.",
-                },
-                "keyword": {
-                    "type": "string",
-                    "description": "제목에 포함될 검색어 (예: '한강', '박물관')",
-                },
-                "district": {
-                    "type": "string",
-                    "description": "구/동 이름 (예: '강남구', '홍대')",
+        "type": "function",
+        "function": {
+            "name": "search_local_info",
+            "description": "서울 지역의 관광지/레포츠/문화시설/쇼핑/숙박/여행코스/축제공연행사 정보를 검색합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": [
+                            "관광지",
+                            "레포츠",
+                            "문화시설",
+                            "쇼핑",
+                            "숙박",
+                            "여행코스",
+                            "축제공연행사",
+                        ],
+                        "description": "검색할 카테고리. 지정하지 않으면 전체 카테고리에서 검색.",
+                    },
+                    "keyword": {
+                        "type": "string",
+                        "description": "제목에 포함될 검색어 (예: '한강', '박물관')",
+                    },
+                    "district": {
+                        "type": "string",
+                        "description": "구/동 이름 (예: '강남구', '홍대')",
+                    },
                 },
             },
         },
     },
     {
-        "name": "search_community_posts",
-        "description": "커뮤니티 게시판의 게시글을 제목/내용 키워드로 검색합니다.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "keyword": {"type": "string", "description": "검색할 키워드"},
-                "category": {"type": "string", "description": "게시판 카테고리 (선택)"},
+        "type": "function",
+        "function": {
+            "name": "search_community_posts",
+            "description": "커뮤니티 게시판의 게시글을 제목/내용 키워드로 검색합니다.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keyword": {"type": "string", "description": "검색할 키워드"},
+                    "category": {"type": "string", "description": "게시판 카테고리 (선택)"},
+                },
+                "required": ["keyword"],
             },
-            "required": ["keyword"],
         },
     },
 ]
 
 
-def _run_tool(name: str, tool_input: dict, db: Session) -> list[dict]:
+def _run_tool(name: str, arguments: dict, db: Session) -> list[dict]:
     if name == "search_local_info":
         return tour_data.search(
-            category=tool_input.get("category"),
-            keyword=tool_input.get("keyword"),
-            district=tool_input.get("district"),
+            category=arguments.get("category"),
+            keyword=arguments.get("keyword"),
+            district=arguments.get("district"),
         )
 
     if name == "search_community_posts":
         q = db.query(Post)
-        if tool_input.get("category"):
-            q = q.filter(Post.category == tool_input["category"])
-        keyword = tool_input.get("keyword", "")
+        if arguments.get("category"):
+            q = q.filter(Post.category == arguments["category"])
+        keyword = arguments.get("keyword", "")
         if keyword:
             q = q.filter(Post.title.contains(keyword) | Post.content.contains(keyword))
         posts = q.order_by(Post.created_at.desc()).limit(10).all()
@@ -108,36 +119,45 @@ class ChatMessageResponse(BaseModel):
 
 
 def _converse(messages: list, db: Session, max_turns: int = 4) -> str:
+<<<<<<< HEAD
     """도구 호출 루프: Claude가 tool_use를 반환하면 실행하고 결과를 다시 넘겨 최종 답변을 받는다."""
     if client is None:
         return "현재 AI 서비스 키가 설정되어 있지 않아 답변을 생성할 수 없습니다."
 
+=======
+    """도구 호출 루프: 모델이 tool_calls를 반환하면 실행하고 결과를 다시 넘겨 최종 답변을 받는다."""
+>>>>>>> 710a4ef (open API 사용하도록 교체)
     for _ in range(max_turns):
-        response = client.messages.create(
-            model="claude-sonnet-5",
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
+        api_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=api_messages,
             tools=TOOLS,
-            messages=messages,
+        )
+        message = response.choices[0].message
+
+        if not message.tool_calls:
+            return message.content or ""
+
+        messages.append(
+            {
+                "role": "assistant",
+                "content": message.content,
+                "tool_calls": [tc.model_dump() for tc in message.tool_calls],
+            }
         )
 
-        if response.stop_reason != "tool_use":
-            return "".join(block.text for block in response.content if block.type == "text")
-
-        messages.append({"role": "assistant", "content": response.content})
-
-        tool_results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                result = _run_tool(block.name, block.input, db)
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": str(result),
-                    }
-                )
-        messages.append({"role": "user", "content": tool_results})
+        for tool_call in message.tool_calls:
+            args = json.loads(tool_call.function.arguments or "{}")
+            result = _run_tool(tool_call.function.name, args, db)
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": json.dumps(result, ensure_ascii=False),
+                }
+            )
 
     return "죄송해요, 지금은 답변을 생성하지 못했어요. 다시 질문해 주시겠어요?"
 
