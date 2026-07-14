@@ -8,6 +8,9 @@ from pydantic import BaseModel, Field
 from database import Post, get_db
 from routers import chat
 
+import json
+from pathlib import Path
+
 app = FastAPI(title="Localhub Anonymous Community API")
 
 app.add_middleware(
@@ -198,3 +201,31 @@ async def websocket_notifications(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+@app.get("/api/tourist")
+def get_tourist_places():
+    file_path = Path(__file__).parent / "data" / "서울_관광지.json"
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Tourist data file not found"
+        )
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    result = []
+
+    for item in data.get("items", []):
+        if item.get("mapx") and item.get("mapy"):
+            result.append({
+                "id": item["contentid"],
+                "title": item["title"],
+                "address": item["addr1"],
+                "lat": float(item["mapy"]),
+                "lng": float(item["mapx"]),
+                "image": item.get("firstimage", "")
+            })
+
+    return result

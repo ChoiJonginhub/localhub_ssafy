@@ -199,17 +199,33 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page">
-    <header>
-      <h1>서울권역 익명 커뮤니티</h1>
-      <p>회원가입 없이 익명으로 작성하고, 수정·삭제는 등록한 비밀번호로만 확인됩니다.</p>
-      <div class="status">현재 접속자: <strong>{{ onlineCount }}</strong>명</div>
-      <div v-if="notificationMessage" class="notification">{{ notificationMessage }}</div>
-    </header>
+    <header class="hero">
+  <div class="hero-text">
+    <span class="badge">SEOUL COMMUNITY</span>
+    <h1>서울권역<br>익명 커뮤니티</h1>
+    <p>
+      회원가입 없이 자유롭게 글을 작성하고<br>
+      비밀번호로 수정과 삭제를 관리하세요.
+    </p>
 
-    <section class="panel">
-      <h2>서울 지도</h2>
-      <MapView />
-    </section>
+    <div class="status">
+      현재 접속자 <strong>{{ onlineCount }}</strong> 명
+    </div>
+
+    <div v-if="notificationMessage" class="notification">
+      {{ notificationMessage }}
+    </div>
+  </div>
+</header>
+
+    <section class="panel map-panel">
+  <div class="section-title">
+    <h2>Seoul Map</h2>
+    <span>지역 기반 커뮤니티</span>
+  </div>
+
+  <MapView />
+</section>
 
     <section class="panel">
       <h2>{{ editingId ? '게시글 수정' : '새 게시글 작성' }}</h2>
@@ -235,9 +251,15 @@ onBeforeUnmount(() => {
 
     <section class="panel">
       <div class="section-header">
-        <h2>게시글 목록</h2>
-        <button type="button" class="secondary" @click="fetchPosts">새로고침</button>
-      </div>
+  <div>
+    <h2>Community Posts</h2>
+    <p>서울 지역의 최신 소식을 확인하세요.</p>
+  </div>
+
+  <button type="button" class="secondary" @click="fetchPosts">
+    새로고침
+  </button>
+</div>
 
       <p v-if="loading">불러오는 중...</p>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
@@ -267,74 +289,216 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .page {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 2rem 1rem 3rem;
-  font-family: Arial, sans-serif;
+  max-width: 1400px;
+  margin: auto;
+  padding: 60px 40px;
+  min-height: 100vh;
+
+  background:
+    radial-gradient(circle at top left,
+      rgba(122,162,255,0.15),
+      transparent 30%),
+    radial-gradient(circle at top right,
+      rgba(255,211,105,0.08),
+      transparent 25%),
+    linear-gradient(
+      180deg,
+      #050816 0%,
+      #0b1126 40%,
+      #111827 100%
+    );
+
+  color: #e8edf5;
+  overflow-x: hidden;
 }
 
-header {
-  margin-bottom: 1.5rem;
+.page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,.9) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255,255,255,.6) 1px, transparent 1px);
+
+  background-size:
+    120px 120px,
+    180px 180px;
+
+  background-position:
+    20px 40px,
+    100px 120px;
+
+  opacity: .25;
+  pointer-events: none;
+}
+
+.hero {
+  margin-bottom: 48px;
+}
+
+.badge {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+
+  color: #ffd369;
+
+  backdrop-filter: blur(20px);
+
+  border-radius: 999px;
+  padding: 10px 20px;
+}
+
+.hero h1 {
+  font-size: 82px;
+  font-weight: 800;
+  line-height: 1.05;
+
+  background: linear-gradient(
+      135deg,
+      #ffffff,
+      #ffd369,
+      #7aa2ff
+  );
+
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  margin-bottom: 24px;
+}
+
+.hero p {
+  color: #9aa4b5;
+  line-height: 1.8;
+  font-size: 20px;
 }
 
 .status {
-  margin-top: 0.5rem;
-  font-weight: 600;
-  color: #2563eb;
+  margin-top: 30px;
+  font-size: 18px;
 }
 
-.notification {
-  margin-top: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  background: #dcfce7;
-  color: #166534;
-  font-weight: 600;
+.status strong {
+  color: #bf7b44;
 }
 
-.panel {
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-form,
+.panel,
 .card {
+  background: rgba(20,27,46,0.65);
+
+  backdrop-filter: blur(24px);
+
+  border: 1px solid rgba(255,255,255,0.08);
+
+  border-radius: 28px;
+
+  box-shadow:
+      0 20px 60px rgba(0,0,0,.35),
+      0 0 40px rgba(122,162,255,.08);
+}
+
+.map-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.map-panel::after {
+  content: "";
+  position: absolute;
+
+  inset: -100px;
+
+  background:
+      radial-gradient(
+          circle,
+          rgba(122,162,255,.15),
+          transparent 70%
+      );
+
+  pointer-events: none;
+}
+
+.section-title {
+  margin-bottom: 24px;
+}
+
+.section-title h2 {
+  font-size: 32px;
+  margin-bottom: 6px;
+}
+
+.section-title span {
+  color: #9c8f81;
+}
+
+form {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 24px;
 }
 
 label {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 10px;
   font-weight: 600;
 }
 
 input,
 textarea {
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 0.7rem;
-  font-size: 1rem;
+  background: rgba(255,255,255,0.05);
+
+  border: 1px solid rgba(255,255,255,.08);
+
+  color: white;
+
+  border-radius: 18px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #7986a3;
+}
+
+input:focus,
+textarea:focus {
+  border-color: #7aa2ff;
+
+  box-shadow:
+      0 0 0 4px rgba(122,162,255,.18);
 }
 
 button {
-  border: 0;
-  border-radius: 8px;
-  padding: 0.7rem 1rem;
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
+  background:
+      linear-gradient(
+          135deg,
+          #ffd369,
+          #ffb347
+      );
+
+  color: #111827;
+
+  font-weight: 700;
+
+  box-shadow:
+      0 10px 30px rgba(255,211,105,.25);
 }
 
-button.secondary {
-  background: #e5e7eb;
-  color: #111827;
+button:hover {
+  transform: translateY(-3px);
+
+  box-shadow:
+      0 20px 40px rgba(255,211,105,.35);
+}
+
+.secondary {
+  background:
+      rgba(255,255,255,.08);
+
+  color: #dbe3f0;
+
+  border:
+      1px solid rgba(255,255,255,.08);
 }
 
 .actions,
@@ -343,42 +507,91 @@ button.secondary {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
-.delete-box {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
+.section-header h2 {
+  font-size: 36px;
 }
 
-.delete-box input {
-  min-width: 140px;
+.section-header p {
+  color: #8d8278;
 }
 
 .card {
-  border-top: 1px solid #f3f4f6;
-  padding-top: 1rem;
-  margin-top: 1rem;
+  background: white;
+  border-radius: 24px;
+  padding: 28px;
+  margin-top: 24px;
+  box-shadow:
+      0 6px 24px rgba(0,0,0,.05);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+}
+
+.card-header h3 {
+  font-size: 24px;
+}
+
+.card-header span {
+  color: #a39b93;
+}
+
+.card p {
+  line-height: 1.8;
+  color: #5d554e;
+}
+
+.delete-box {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.delete-box input {
+  width: 180px;
+}
+
+.notification {
+  margin-top: 20px;
+  background: #eef8ee;
+  color: #2e6b2e;
+  border-radius: 18px;
+  padding: 16px;
 }
 
 .error {
-  color: #b91c1c;
+  color: #d14343;
 }
 
 .success {
-  color: #047857;
+  color: #1c8f4f;
 }
 
 .empty {
-  color: #6b7280;
+  color: #8d8278;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 30px 20px;
+  }
+
+  .hero h1 {
+    font-size: 48px;
+  }
+
+  .panel {
+    padding: 24px;
+  }
+
+  .section-header h2 {
+    font-size: 28px;
+  }
 }
 </style>
