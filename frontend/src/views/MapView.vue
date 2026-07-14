@@ -27,6 +27,8 @@ async function loadTouristMarkers() {
       title: place.title
     })
 
+    markers.push(marker)
+
     const infoWindow =
       new naver.maps.InfoWindow({
         content: `

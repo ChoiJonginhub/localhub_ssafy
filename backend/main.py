@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from database import Post, get_db
-from routers import chat
+#from routers import chat
 
 import json
 from pathlib import Path
@@ -21,7 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(chat.router)
+#app.include_router(chat.router)
 
 
 class PostCreate(BaseModel):
