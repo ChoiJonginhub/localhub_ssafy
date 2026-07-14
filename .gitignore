@@ -427,3 +427,28 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Python virtual environment
+backend/venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env
+
+# Node.js
+frontend/node_modules/
+frontend/dist/
+
+# Vite
+.vite/
+
+# SQLite database
+*.db
+*.sqlite3
+
+# macOS
+.DS_Store
