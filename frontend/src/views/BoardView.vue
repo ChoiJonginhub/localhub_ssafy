@@ -1,7 +1,8 @@
 <script setup>
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import MapView from './MapView.vue'
 
+const sunsetProgress = ref(50)
 const category = 'seoul'
 const posts = ref([])
 const loading = ref(false)
@@ -19,6 +20,28 @@ const form = ref({
   title: '',
   content: '',
   password: '',
+})
+
+const skyStyle = computed(() => {
+  let c1, c2, c3
+
+  if (sunsetProgress.value <= 33) {
+    c1 = '#1a1035'
+    c2 = '#9b3d70'
+    c3 = '#f97316'
+  } else if (sunsetProgress.value <= 70) {
+    c1 = '#1b153a'
+    c2 = '#7c3aed'
+    c3 = '#ec4899'
+  } else {
+    c1 = '#050816'
+    c2 = '#111827'
+    c3 = '#1e293b'
+  }
+
+  return {
+    background: `linear-gradient(to bottom, ${c1} 0%, ${c2} 60%, ${c3} 100%)`
+  }
 })
 
 async function fetchPosts() {
@@ -198,34 +221,61 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page">
-    <header class="hero">
-  <div class="hero-text">
-    <span class="badge">SEOUL COMMUNITY</span>
-    <h1>서울권역<br>익명 커뮤니티</h1>
-    <p>
-      회원가입 없이 자유롭게 글을 작성하고<br>
-      비밀번호로 수정과 삭제를 관리하세요.
-    </p>
+  <div class="page" :style="skyStyle">
 
-    <div class="status">
-      현재 접속자 <strong>{{ onlineCount }}</strong> 명
+<section class="hero">
+
+  <h1>
+    <h1>서울 익명 커뮤니티</h1>
+    <span>with SUNSET TIMELINE</span>
+  </h1>
+
+  <p>
+    회원가입 없이 자유롭게 글을 작성하고 비밀번호로 수정과 삭제를 관리하세요.
+  </p>
+
+  <div class="sunset-controller">
+    <div class="sunset-labels">
+      <span :class="{ active: sunsetProgress <= 33 }">
+        Golden
+      </span>
+
+      <span :class="{ active: sunsetProgress > 33 && sunsetProgress <= 70 }">
+        Magenta
+      </span>
+
+      <span :class="{ active: sunsetProgress > 70 }">
+        Twilight
+      </span>
     </div>
 
-    <div v-if="notificationMessage" class="notification">
-      {{ notificationMessage }}
+    <input
+      v-model="sunsetProgress"
+      type="range"
+      min="0"
+      max="100"
+      class="sunset-slider"
+    />
+
+    <div class="sunset-times">
+      <span>17:20</span>
+      <span>20:40</span>
     </div>
   </div>
-</header>
 
-    <section class="panel map-panel">
+  <div class="status">
+      현재 접속자 <strong>{{ onlineCount }}</strong> 명
+    </div>
+</section>
+
   <div class="section-title">
     <h2>Seoul Map</h2>
     <span>지역 기반 커뮤니티</span>
+    <section class="panel map-panel">
+    </section>
   </div>
 
   <MapView />
-</section>
 
     <section class="panel">
       <h2>{{ editingId ? '게시글 수정' : '새 게시글 작성' }}</h2>
@@ -593,5 +643,95 @@ button:hover {
   .section-header h2 {
     font-size: 28px;
   }
+}
+.page {
+  min-height: 100vh;
+  transition: background 1.5s ease;
+  color: #f1f5f9;
+}
+
+.hero {
+  text-align: center;
+  padding: 80px 20px 60px;
+}
+
+.hero-badge {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.1);
+  color: #fdba74;
+  font-size: 12px;
+  margin-bottom: 24px;
+}
+
+.hero h1 {
+  font-size: 72px;
+  font-weight: 900;
+  color: white;
+  margin: 0;
+}
+
+.hero h1 span {
+  display: block;
+  font-size: 28px;
+  margin-top: 10px;
+  letter-spacing: 8px;
+  background: linear-gradient(
+    to right,
+    #fdba74,
+    #ec4899,
+    #818cf8
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+  color: #cbd5e1;
+  margin-top: 20px;
+}
+
+.sunset-controller {
+  max-width: 520px;
+  margin: 40px auto 0;
+  padding: 24px;
+  border-radius: 24px;
+
+  background: rgba(255,255,255,.05);
+
+  backdrop-filter: blur(20px);
+
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.sunset-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sunset-labels span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.sunset-labels .active {
+  color: white;
+  font-weight: 700;
+}
+
+.sunset-slider {
+  width: 100%;
+  accent-color: #ec4899;
+}
+
+.sunset-times {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  color: #94a3b8;
+  font-size: 12px;
 }
 </style>
