@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref } from 'vue'
+import MapView from './MapView.vue'
 
 const category = 'seoul'
 const posts = ref([])
