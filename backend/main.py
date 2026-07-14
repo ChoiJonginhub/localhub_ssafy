@@ -1,11 +1,10 @@
-from datetime import datetime
-from typing import Generator
-
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, DateTime, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from datetime import datetime
+
+from database import Post, get_db
+from routers import chat
 
 app = FastAPI(title="Localhub Anonymous Community API")
 
@@ -17,25 +16,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATABASE_URL = "sqlite:///./community.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-
-class Post(Base):
-    __tablename__ = "posts"
-
-    id = Column(Integer, primary_key=True, index=True)
-    category = Column(String(50), nullable=False, index=True)
-    title = Column(String(200), nullable=False)
-    content = Column(String(2000), nullable=False)
-    password = Column(String(100), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-
-Base.metadata.create_all(bind=engine)
+app.include_router(chat.router)
 
 
 class PostCreate(BaseModel):
@@ -64,14 +45,6 @@ class PostResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-def get_db() -> Generator:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @app.get("/")
