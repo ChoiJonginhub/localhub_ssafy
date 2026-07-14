@@ -206,6 +206,11 @@ onBeforeUnmount(() => {
     </header>
 
     <section class="panel">
+      <h2>서울 지도</h2>
+      <MapView />
+    </section>
+
+    <section class="panel">
       <h2>{{ editingId ? '게시글 수정' : '새 게시글 작성' }}</h2>
       <form @submit.prevent="submitForm">
         <label>
