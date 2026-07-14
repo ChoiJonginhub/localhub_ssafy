@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref } from 'vue'
+import MapView from './MapView.vue'
 
 const category = 'seoul'
 const posts = ref([])
@@ -204,6 +205,11 @@ onBeforeUnmount(() => {
       <div class="status">현재 접속자: <strong>{{ onlineCount }}</strong>명</div>
       <div v-if="notificationMessage" class="notification">{{ notificationMessage }}</div>
     </header>
+
+    <section class="panel">
+      <h2>서울 지도</h2>
+      <MapView />
+    </section>
 
     <section class="panel">
       <h2>{{ editingId ? '게시글 수정' : '새 게시글 작성' }}</h2>
