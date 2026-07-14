@@ -2,736 +2,1355 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import MapView from './MapView.vue'
 
-const sunsetProgress = ref(50)
 const category = 'seoul'
+
+const sunsetProgress = ref(50)
 const posts = ref([])
+
 const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const notificationMessage = ref('')
+
 const editingId = ref(null)
 const deletePasswords = ref({})
+
 const onlineCount = ref(0)
+
 const socket = ref(null)
 const reconnectTimer = ref(null)
+
 const lastNotificationId = ref(null)
+
 
 const form = ref({
   title: '',
   content: '',
-  password: '',
+  password: ''
 })
 
+
 const skyStyle = computed(() => {
-  let c1, c2, c3
+
+  let c1
+  let c2
+  let c3
+
 
   if (sunsetProgress.value <= 33) {
+
     c1 = '#1a1035'
     c2 = '#9b3d70'
     c3 = '#f97316'
+
   } else if (sunsetProgress.value <= 70) {
+
     c1 = '#1b153a'
     c2 = '#7c3aed'
     c3 = '#ec4899'
+
   } else {
+
     c1 = '#050816'
     c2 = '#111827'
     c3 = '#1e293b'
+
   }
+
 
   return {
-    background: `linear-gradient(to bottom, ${c1} 0%, ${c2} 60%, ${c3} 100%)`
+    background:
+      `linear-gradient(to bottom, ${c1}, ${c2}, ${c3})`
   }
+
 })
 
-async function fetchPosts() {
+
+
+async function fetchPosts(){
+
   loading.value = true
-  errorMessage.value = ''
-  try {
-    const response = await fetch(`http://localhost:8000/api/boards/${category}/posts`)
-    if (!response.ok) {
-      throw new Error('게시글을 불러오지 못했습니다.')
-    }
-    posts.value = await response.json()
-  } catch (error) {
-    errorMessage.value = error.message
-  } finally {
+
+  try{
+
+    const res =
+      await fetch(
+        `http://localhost:8000/api/boards/${category}/posts`
+      )
+
+
+    posts.value = await res.json()
+
+
+  }catch(err){
+
+    errorMessage.value = err.message
+
+  }finally{
+
     loading.value = false
+
   }
+
 }
 
-function resetForm() {
+
+
+
+function resetForm(){
+
   editingId.value = null
-  form.value = { title: '', content: '', password: '' }
-}
 
-function connectSocket() {
-  if (socket.value && (socket.value.readyState === WebSocket.OPEN || socket.value.readyState === WebSocket.CONNECTING)) {
-    return
-  }
-
-  if (reconnectTimer.value) {
-    clearTimeout(reconnectTimer.value)
-    reconnectTimer.value = null
-  }
-
-  const clientId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  window.sessionStorage.setItem('board-client-id', clientId)
-  const ws = new WebSocket(`ws://localhost:8000/ws/notifications?client_id=${encodeURIComponent(clientId)}`)
-  socket.value = ws
-
-  ws.addEventListener('open', () => {
-    onlineCount.value = onlineCount.value
-  })
-
-  ws.addEventListener('message', (event) => {
-    try {
-      const payload = JSON.parse(event.data)
-      if (payload.type === 'presence') {
-        const nextCount = Number(payload.count) || 0
-        onlineCount.value = Math.max(nextCount, 0)
-        return
-      }
-
-      if (payload.type === 'new_post') {
-        const incomingPost = payload.post
-        if (lastNotificationId.value === incomingPost.id) {
-          return
-        }
-        lastNotificationId.value = incomingPost.id
-        const exists = posts.value.some((post) => post.id === incomingPost.id)
-        if (!exists) {
-          posts.value = [incomingPost, ...posts.value]
-        }
-        notificationMessage.value = `새 게시글이 등록되었습니다: ${incomingPost.title}`
-        setTimeout(() => {
-          if (lastNotificationId.value === incomingPost.id) {
-            notificationMessage.value = ''
-          }
-        }, 4000)
-      }
-    } catch (error) {
-      console.error('WebSocket message parse error', error)
-    }
-  })
-
-  ws.addEventListener('close', () => {
-    socket.value = null
-    reconnectTimer.value = setTimeout(() => {
-      connectSocket()
-    }, 1000)
-  })
-
-  ws.addEventListener('error', () => {
-    console.error('WebSocket connection error')
-  })
-}
-
-function startEdit(post) {
-  editingId.value = post.id
   form.value = {
-    title: post.title,
-    content: post.content,
-    password: '',
+    title:'',
+    content:'',
+    password:''
   }
-  successMessage.value = ''
-  errorMessage.value = ''
+
 }
 
-async function submitForm() {
-  if (!form.value.title || !form.value.content || !form.value.password) {
-    errorMessage.value = '제목, 내용, 비밀번호를 모두 입력해주세요.'
-    return
+
+
+
+function startEdit(post){
+
+  editingId.value = post.id
+
+
+  form.value = {
+
+    title:post.title,
+
+    content:post.content,
+
+    password:''
+
   }
 
-  try {
-    const url = `http://localhost:8000/api/boards/${category}/posts${editingId.value ? `/${editingId.value}` : ''}`
-    const method = editingId.value ? 'PUT' : 'POST'
-    const payload = {
-      title: form.value.title,
-      content: form.value.content,
-      password: form.value.password,
+}
+
+
+
+async function submitForm(){
+
+  if(
+    !form.value.title ||
+    !form.value.content ||
+    !form.value.password
+  ){
+
+    errorMessage.value =
+      '제목, 내용, 비밀번호를 입력해주세요.'
+
+    return
+
+  }
+
+
+
+  const url =
+    `http://localhost:8000/api/boards/${category}/posts`
+    +
+    (editingId.value ? `/${editingId.value}` : '')
+
+
+
+  const method =
+    editingId.value ? 'PUT' : 'POST'
+
+
+
+  try{
+
+
+    const res =
+      await fetch(url,{
+
+        method,
+
+        headers:{
+          'Content-Type':'application/json'
+        },
+
+        body:
+          JSON.stringify(form.value)
+
+      })
+
+
+
+    if(!res.ok){
+
+      throw new Error(
+        '처리에 실패했습니다.'
+      )
+
     }
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({ detail: '요청 처리에 실패했습니다.' }))
-      throw new Error(data.detail || '요청 처리에 실패했습니다.')
-    }
 
-    successMessage.value = editingId.value ? '게시글이 수정되었습니다.' : '게시글이 등록되었습니다.'
+    successMessage.value =
+      editingId.value
+      ? '게시글이 수정되었습니다.'
+      : '게시글이 등록되었습니다.'
+
+
+
     resetForm()
-    await fetchPosts()
-  } catch (error) {
-    errorMessage.value = error.message
+
+    fetchPosts()
+
+
+
+  }catch(err){
+
+    errorMessage.value =
+      err.message
+
   }
+
 }
 
-async function deletePost(postId) {
-  const password = deletePasswords.value[postId] || ''
-  if (!password) {
-    errorMessage.value = '삭제하려면 비밀번호를 입력해주세요.'
+
+
+
+
+async function deletePost(id){
+
+  const password =
+    deletePasswords.value[id]
+
+
+  if(!password){
+
+    errorMessage.value =
+      '삭제 비밀번호를 입력해주세요.'
+
     return
+
   }
 
-  try {
-    const response = await fetch(`http://localhost:8000/api/boards/${category}/posts/${postId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ password }),
-    })
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({ detail: '삭제에 실패했습니다.' }))
-      throw new Error(data.detail || '삭제에 실패했습니다.')
+
+  try{
+
+
+    const res =
+      await fetch(
+        `http://localhost:8000/api/boards/${category}/posts/${id}`,
+        {
+
+          method:'DELETE',
+
+          headers:{
+            'Content-Type':'application/json'
+          },
+
+          body:
+            JSON.stringify({
+              password
+            })
+
+        }
+      )
+
+
+
+    if(!res.ok){
+
+      throw new Error(
+        '삭제 실패'
+      )
+
     }
 
-    successMessage.value = '게시글이 삭제되었습니다.'
-    deletePasswords.value[postId] = ''
-    await fetchPosts()
-  } catch (error) {
-    errorMessage.value = error.message
+
+
+    successMessage.value =
+      '게시글이 삭제되었습니다.'
+
+
+    fetchPosts()
+
+
+  }catch(err){
+
+    errorMessage.value =
+      err.message
+
   }
+
+
 }
 
-onMounted(() => {
+
+
+
+
+function connectSocket(){
+
+  const clientId =
+    Date.now()
+
+
+  socket.value =
+    new WebSocket(
+      `ws://localhost:8000/ws/notifications?client_id=${clientId}`
+    )
+
+
+  socket.value.onmessage =
+    e => {
+
+
+      const data =
+        JSON.parse(e.data)
+
+
+
+      if(data.type === 'presence'){
+
+        onlineCount.value =
+          data.count
+
+      }
+
+
+
+      if(data.type === 'new_post'){
+
+        if(
+          lastNotificationId.value !== data.post.id
+        ){
+
+          posts.value.unshift(data.post)
+
+          notificationMessage.value =
+            '새 게시글이 등록되었습니다.'
+
+        }
+
+      }
+
+
+    }
+
+
+
+  socket.value.onclose = ()=>{
+
+    reconnectTimer.value =
+      setTimeout(
+        connectSocket,
+        1000
+      )
+
+  }
+
+
+}
+
+
+
+
+
+onMounted(()=>{
+
   fetchPosts()
+
   connectSocket()
+
 })
 
-onBeforeUnmount(() => {
-  if (reconnectTimer.value) {
-    clearTimeout(reconnectTimer.value)
-    reconnectTimer.value = null
-  }
-  if (socket.value) {
+
+
+onBeforeUnmount(()=>{
+
+  if(socket.value){
+
     socket.value.close()
-    socket.value = null
-  }
-})
-</script>
 
+  }
+
+
+  if(reconnectTimer.value){
+
+    clearTimeout(
+      reconnectTimer.value
+    )
+
+  }
+
+})
+
+</script>
 <template>
   <div class="page" :style="skyStyle">
 
-<section class="hero">
+    <!-- HERO -->
+    <section class="hero">
 
-  <h1>
-    <h1>서울 익명 커뮤니티</h1>
-    <span>with SUNSET TIMELINE</span>
-  </h1>
+      <h1>
+        서울 익명 커뮤니티
+      </h1>
 
-  <p>
-    회원가입 없이 자유롭게 글을 작성하고 비밀번호로 수정과 삭제를 관리하세요.
-  </p>
+      <p>
+        회원가입 없이 자유롭게 이야기를 나누고<br>
+        비밀번호로 게시글을 안전하게 관리하세요.
+      </p>
 
-  <div class="sunset-controller">
-    <div class="sunset-labels">
-      <span :class="{ active: sunsetProgress <= 33 }">
-        Golden
-      </span>
 
-      <span :class="{ active: sunsetProgress > 33 && sunsetProgress <= 70 }">
-        Magenta
-      </span>
+      <div class="sunset-controller">
 
-      <span :class="{ active: sunsetProgress > 70 }">
-        Twilight
-      </span>
-    </div>
+        <div class="sunset-labels">
 
-    <input
-      v-model="sunsetProgress"
-      type="range"
-      min="0"
-      max="100"
-      class="sunset-slider"
-    />
+          <span :class="{active:sunsetProgress <= 33}">
+            Golden
+          </span>
 
-    <div class="sunset-times">
-      <span>17:20</span>
-      <span>20:40</span>
-    </div>
-  </div>
+          <span :class="{active:sunsetProgress > 33 && sunsetProgress <= 70}">
+            Magenta
+          </span>
 
-  <div class="status">
-      현재 접속자 <strong>{{ onlineCount }}</strong> 명
-    </div>
-</section>
+          <span :class="{active:sunsetProgress > 70}">
+            Twilight
+          </span>
 
-  <div class="section-title">
-    <h2>Seoul Map</h2>
-    <span>지역 기반 커뮤니티</span>
-    <section class="panel map-panel">
-    </section>
-  </div>
-
-  <MapView />
-
-    <section class="panel">
-      <h2>{{ editingId ? '게시글 수정' : '새 게시글 작성' }}</h2>
-      <form @submit.prevent="submitForm">
-        <label>
-          제목
-          <input v-model="form.title" placeholder="제목을 입력하세요" />
-        </label>
-        <label>
-          내용
-          <textarea v-model="form.content" rows="6" placeholder="내용을 입력하세요"></textarea>
-        </label>
-        <label>
-          수정/삭제 비밀번호
-          <input v-model="form.password" type="password" placeholder="비밀번호" />
-        </label>
-        <div class="actions">
-          <button type="submit">{{ editingId ? '수정하기' : '등록하기' }}</button>
-          <button v-if="editingId" type="button" class="secondary" @click="resetForm">취소</button>
         </div>
-      </form>
+
+
+        <input
+          v-model="sunsetProgress"
+          type="range"
+          min="0"
+          max="100"
+          class="sunset-slider"
+        />
+
+
+        <div class="sunset-times">
+          <span>17:20</span>
+          <span>20:40</span>
+        </div>
+
+      </div>
+
+
+      <div class="status">
+        현재 접속자
+        <strong>{{onlineCount}}</strong>
+        명
+      </div>
+
     </section>
 
-    <section class="panel">
+
+
+    <!-- MAP -->
+
+    <section class="section-title">
+
+      <h2>
+        Seoul Map
+      </h2>
+
+      <p>
+        지역 기반 익명 커뮤니티
+      </p>
+
+    </section>
+
+
+    <MapView />
+
+
+
+
+    <!-- WRITE -->
+
+    <section class="panel write-panel">
+
+
+      <h2>
+        {{editingId ? '게시글 수정' : '새 게시글 작성'}}
+      </h2>
+
+
+
+      <form
+        @submit.prevent="submitForm"
+      >
+
+
+        <label>
+
+          제목
+
+          <input
+            v-model="form.title"
+            placeholder="제목을 입력하세요"
+          />
+
+        </label>
+
+
+
+        <label>
+
+          내용
+
+          <textarea
+            v-model="form.content"
+            rows="6"
+            placeholder="내용을 입력하세요"
+          />
+
+        </label>
+
+
+
+        <label>
+
+          수정 / 삭제 비밀번호
+
+          <input
+            v-model="form.password"
+            type="password"
+            placeholder="비밀번호"
+          />
+
+        </label>
+
+
+
+        <div class="actions">
+
+          <button>
+            {{editingId ? '수정하기' : '등록하기'}}
+          </button>
+
+
+          <button
+            v-if="editingId"
+            type="button"
+            class="secondary"
+            @click="resetForm"
+          >
+            취소
+          </button>
+
+
+        </div>
+
+
+      </form>
+
+
+    </section>
+
+
+
+
+
+    <!-- COMMUNITY -->
+
+
+    <section class="panel community-panel">
+
+
       <div class="section-header">
-  <div>
-    <h2>Community Posts</h2>
-    <p>서울 지역의 최신 소식을 확인하세요.</p>
-  </div>
 
-  <button type="button" class="secondary" @click="fetchPosts">
-    새로고침
-  </button>
-</div>
 
-      <p v-if="loading">불러오는 중...</p>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="success">{{ successMessage }}</p>
+        <div>
 
-      <div v-if="posts.length === 0 && !loading" class="empty">
+          <h2>
+            Community
+            <span>
+              Board
+            </span>
+          </h2>
+
+
+          <p>
+            서울 지역 사용자들의 실시간 이야기
+          </p>
+
+        </div>
+
+
+
+        <button
+          class="secondary"
+          @click="fetchPosts"
+        >
+          새로고침
+        </button>
+
+
+      </div>
+
+
+
+
+      <div
+        v-if="notificationMessage"
+        class="notification"
+      >
+        {{notificationMessage}}
+      </div>
+
+
+
+      <p
+        v-if="loading"
+      >
+        불러오는 중...
+      </p>
+
+
+
+      <p
+        v-if="errorMessage"
+        class="error"
+      >
+        {{errorMessage}}
+      </p>
+
+
+
+      <p
+        v-if="successMessage"
+        class="success"
+      >
+        {{successMessage}}
+      </p>
+
+
+
+
+
+      <div
+        v-if="posts.length===0 && !loading"
+        class="empty"
+      >
         아직 등록된 게시글이 없습니다.
       </div>
 
-      <article v-for="post in posts" :key="post.id" class="card">
+
+
+
+
+
+      <article
+        v-for="post in posts"
+        :key="post.id"
+        class="card"
+      >
+
+
         <div class="card-header">
-          <h3>{{ post.title }}</h3>
-          <span>{{ new Date(post.created_at).toLocaleString() }}</span>
+
+
+          <h3>
+            {{post.title}}
+          </h3>
+
+
+          <time>
+            {{new Date(post.created_at).toLocaleString()}}
+          </time>
+
+
         </div>
-        <p>{{ post.content }}</p>
+
+
+
+
+        <div class="content">
+
+          {{post.content}}
+
+        </div>
+
+
+
+
         <div class="card-footer">
-          <button type="button" class="secondary" @click="startEdit(post)">수정</button>
+
+
+          <button
+            class="secondary"
+            @click="startEdit(post)"
+          >
+            수정
+          </button>
+
+
+
+
           <div class="delete-box">
-            <input v-model="deletePasswords[post.id]" type="password" placeholder="삭제 비밀번호" />
-            <button type="button" @click="deletePost(post.id)">삭제</button>
+
+
+            <input
+
+              v-model="deletePasswords[post.id]"
+
+              type="password"
+
+              placeholder="삭제 비밀번호"
+
+            />
+
+
+
+            <button
+              class="delete"
+              @click="deletePost(post.id)"
+            >
+
+              삭제
+
+            </button>
+
+
+
           </div>
+
+
+
         </div>
+
+
       </article>
+
+
     </section>
+
+
   </div>
 </template>
 
+
+
+
+
 <style scoped>
-.page {
-  max-width: 1400px;
-  margin: auto;
-  padding: 60px 40px;
-  min-height: 100vh;
+
+*{
+  box-sizing:border-box;
+}
+
+
+.page{
+
+  max-width:1400px;
+
+  margin:auto;
+
+  padding:60px 40px;
+
+  min-height:100vh;
+
+  color:#f8fafc;
+
+  transition:1s;
+
+}
+
+
+
+.page::before{
+
+  content:"";
+
+  position:fixed;
+
+  inset:0;
 
   background:
-    radial-gradient(circle at top left,
-      rgba(122,162,255,0.15),
-      transparent 30%),
-    radial-gradient(circle at top right,
-      rgba(255,211,105,0.08),
-      transparent 25%),
-    linear-gradient(
-      180deg,
-      #050816 0%,
-      #0b1126 40%,
-      #111827 100%
-    );
+  radial-gradient(circle,white 1px,transparent 1px);
 
-  color: #e8edf5;
-  overflow-x: hidden;
+  background-size:120px 120px;
+
+  opacity:.12;
+
+  pointer-events:none;
+
 }
 
-.page::before {
-  content: "";
-  position: fixed;
-  inset: 0;
 
-  background-image:
-    radial-gradient(circle, rgba(255,255,255,.9) 1px, transparent 1px),
-    radial-gradient(circle, rgba(255,255,255,.6) 1px, transparent 1px);
 
-  background-size:
-    120px 120px,
-    180px 180px;
 
-  background-position:
-    20px 40px,
-    100px 120px;
 
-  opacity: .25;
-  pointer-events: none;
+.hero{
+
+  text-align:center;
+
+  padding:80px 20px;
+
 }
 
-.hero {
-  margin-bottom: 48px;
-}
 
-.badge {
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
 
-  color: #ffd369;
+.hero h1{
 
-  backdrop-filter: blur(20px);
+  font-size:72px;
 
-  border-radius: 999px;
-  padding: 10px 20px;
-}
+  font-weight:900;
 
-.hero h1 {
-  font-size: 82px;
-  font-weight: 800;
-  line-height: 1.05;
+  line-height:1.1;
 
-  background: linear-gradient(
-      135deg,
-      #ffffff,
-      #ffd369,
-      #7aa2ff
+  margin:0;
+
+
+  background:
+  linear-gradient(
+    135deg,
+    #fff,
+    #ffd369,
+    #818cf8
   );
 
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 
-  margin-bottom: 24px;
+  -webkit-background-clip:text;
+
+  color:transparent;
+
 }
 
-.hero p {
-  color: #9aa4b5;
-  line-height: 1.8;
-  font-size: 20px;
+
+
+.hero h1 span{
+
+  display:block;
+
+  font-size:28px;
+
+  letter-spacing:8px;
+
+  margin-top:15px;
+
 }
 
-.status {
-  margin-top: 30px;
-  font-size: 18px;
+
+
+
+.hero p{
+
+  margin-top:25px;
+
+  color:#cbd5e1;
+
+  font-size:18px;
+
+  line-height:1.8;
+
 }
 
-.status strong {
-  color: #bf7b44;
-}
 
-.panel,
-.card {
-  background: rgba(20,27,46,0.65);
 
-  backdrop-filter: blur(24px);
 
-  border: 1px solid rgba(255,255,255,0.08);
 
-  border-radius: 28px;
+.sunset-controller{
 
-  box-shadow:
-      0 20px 60px rgba(0,0,0,.35),
-      0 0 40px rgba(122,162,255,.08);
-}
+  max-width:520px;
 
-.map-panel {
-  position: relative;
-  overflow: hidden;
-}
+  margin:40px auto;
 
-.map-panel::after {
-  content: "";
-  position: absolute;
+  padding:25px;
 
-  inset: -100px;
+  border-radius:24px;
 
   background:
-      radial-gradient(
-          circle,
-          rgba(122,162,255,.15),
-          transparent 70%
-      );
+  rgba(255,255,255,.08);
 
-  pointer-events: none;
+  backdrop-filter:blur(20px);
+
 }
 
-.section-title {
-  margin-bottom: 24px;
+
+
+.sunset-labels,
+.sunset-times{
+
+  display:flex;
+
+  justify-content:space-between;
+
 }
 
-.section-title h2 {
-  font-size: 32px;
-  margin-bottom: 6px;
+
+
+.sunset-labels span{
+
+  color:#94a3b8;
+
 }
 
-.section-title span {
-  color: #9c8f81;
+
+
+.sunset-labels .active{
+
+  color:white;
+
+  font-weight:bold;
+
 }
 
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+
+
+.sunset-slider{
+
+  width:100%;
+
+  margin:20px 0;
+
 }
 
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  font-weight: 600;
+
+
+.status{
+
+  font-size:18px;
+
 }
 
-input,
-textarea {
-  background: rgba(255,255,255,0.05);
 
-  border: 1px solid rgba(255,255,255,.08);
+.status strong{
 
-  color: white;
+  color:#ffd369;
 
-  border-radius: 18px;
 }
 
-input::placeholder,
-textarea::placeholder {
-  color: #7986a3;
+
+
+
+
+
+
+.section-title{
+
+  margin:40px 0 20px;
+
 }
 
-input:focus,
-textarea:focus {
-  border-color: #7aa2ff;
 
-  box-shadow:
-      0 0 0 4px rgba(122,162,255,.18);
+.section-title h2{
+
+  font-size:36px;
+
 }
 
-button {
+
+.section-title p{
+
+  color:#94a3b8;
+
+}
+
+
+
+
+
+
+.panel{
+
+  margin-top:40px;
+
+  padding:35px;
+
+
+  border-radius:30px;
+
+
   background:
-      linear-gradient(
-          135deg,
-          #ffd369,
-          #ffb347
-      );
+  rgba(15,23,42,.65);
 
-  color: #111827;
-
-  font-weight: 700;
-
-  box-shadow:
-      0 10px 30px rgba(255,211,105,.25);
-}
-
-button:hover {
-  transform: translateY(-3px);
-
-  box-shadow:
-      0 20px 40px rgba(255,211,105,.35);
-}
-
-.secondary {
-  background:
-      rgba(255,255,255,.08);
-
-  color: #dbe3f0;
 
   border:
-      1px solid rgba(255,255,255,.08);
+  1px solid rgba(255,255,255,.1);
+
+
+  backdrop-filter:blur(25px);
+
+
+  box-shadow:
+  0 20px 60px rgba(0,0,0,.35);
+
 }
+
+
+
+
+
+
+form{
+
+ display:flex;
+
+ flex-direction:column;
+
+ gap:20px;
+
+}
+
+
+
+label{
+
+ display:flex;
+
+ flex-direction:column;
+
+ gap:10px;
+
+ font-weight:bold;
+
+}
+
+
+
+input,
+textarea{
+
+ padding:16px;
+
+ border-radius:16px;
+
+
+ border:
+ 1px solid rgba(255,255,255,.15);
+
+
+ background:
+ rgba(255,255,255,.06);
+
+
+ color:white;
+
+
+}
+
+
+
+
 
 .actions,
 .section-header,
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+.card-footer{
+
+ display:flex;
+
+ justify-content:space-between;
+
+ align-items:center;
+
+ gap:15px;
+
 }
 
-.section-header h2 {
-  font-size: 36px;
+
+
+
+
+button{
+
+ padding:12px 22px;
+
+ border-radius:14px;
+
+ border:none;
+
+ cursor:pointer;
+
+
+ background:
+ linear-gradient(
+ 135deg,
+ #ffd369,
+ #ffb347
+ );
+
+
+ font-weight:bold;
+
 }
 
-.section-header p {
-  color: #8d8278;
+
+
+button:hover{
+
+ transform:translateY(-2px);
+
 }
 
-.card {
-  background: white;
-  border-radius: 24px;
-  padding: 28px;
-  margin-top: 24px;
-  box-shadow:
-      0 6px 24px rgba(0,0,0,.05);
+
+
+.secondary{
+
+ background:
+ rgba(255,255,255,.1);
+
+
+ color:white;
+
 }
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+
+
+.delete{
+
+ background:
+ linear-gradient(
+ 135deg,
+ #fb7185,
+ #ef4444
+ );
+
+ color:white;
+
 }
 
-.card-header h3 {
-  font-size: 24px;
+
+
+
+
+
+.section-header h2{
+
+ font-size:42px;
+
+ margin:0;
+
 }
 
-.card-header span {
-  color: #a39b93;
+
+.section-header h2 span{
+
+ color:#ffd369;
+
 }
 
-.card p {
-  line-height: 1.8;
-  color: #5d554e;
+
+
+.section-header p{
+
+ color:#94a3b8;
+
 }
 
-.delete-box {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+
+
+
+
+
+.card{
+
+ margin-top:25px;
+
+ padding:30px;
+
+
+ border-radius:25px;
+
+
+ background:
+ rgba(255,255,255,.06);
+
+
+ border:
+ 1px solid rgba(255,255,255,.12);
+
+
+ transition:.3s;
+
 }
 
-.delete-box input {
-  width: 180px;
+
+
+
+.card:hover{
+
+ transform:translateY(-5px);
+
+ border-color:#ffd369;
+
 }
 
-.notification {
-  margin-top: 20px;
-  background: #eef8ee;
-  color: #2e6b2e;
-  border-radius: 18px;
-  padding: 16px;
+
+
+
+.card-header{
+
+ display:flex;
+
+ justify-content:space-between;
+
+ align-items:center;
+
+ padding-bottom:18px;
+
+ border-bottom:
+ 1px solid rgba(255,255,255,.1);
+
 }
 
-.error {
-  color: #d14343;
+
+
+.card-header h3{
+
+ font-size:24px;
+
+ margin:0;
+
 }
 
-.success {
-  color: #1c8f4f;
+
+
+.card-header time{
+
+ color:#94a3b8;
+
+ font-size:14px;
+
 }
 
-.empty {
-  color: #8d8278;
+
+
+.content{
+
+ padding:25px 0;
+
+ color:#e2e8f0;
+
+ line-height:1.8;
+
+ white-space:pre-line;
+
 }
 
-@media (max-width: 768px) {
-  .page {
-    padding: 30px 20px;
-  }
 
-  .hero h1 {
-    font-size: 48px;
-  }
 
-  .panel {
-    padding: 24px;
-  }
 
-  .section-header h2 {
-    font-size: 28px;
-  }
-}
-.page {
-  min-height: 100vh;
-  transition: background 1.5s ease;
-  color: #f1f5f9;
+
+.delete-box{
+
+ display:flex;
+
+ gap:10px;
+
 }
 
-.hero {
-  text-align: center;
-  padding: 80px 20px 60px;
+
+
+.delete-box input{
+
+ width:180px;
+
 }
 
-.hero-badge {
-  display: inline-block;
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.1);
-  color: #fdba74;
-  font-size: 12px;
-  margin-bottom: 24px;
+
+
+
+.notification{
+
+ margin-top:20px;
+
+ padding:15px;
+
+ border-radius:15px;
+
+ background:#064e3b;
+
 }
 
-.hero h1 {
-  font-size: 72px;
-  font-weight: 900;
-  color: white;
-  margin: 0;
+
+
+.error{
+
+ color:#fb7185;
+
 }
 
-.hero h1 span {
-  display: block;
-  font-size: 28px;
-  margin-top: 10px;
-  letter-spacing: 8px;
-  background: linear-gradient(
-    to right,
-    #fdba74,
-    #ec4899,
-    #818cf8
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+
+
+.success{
+
+ color:#4ade80;
+
 }
 
-.hero p {
-  color: #cbd5e1;
-  margin-top: 20px;
+
+
+.empty{
+
+ padding:40px;
+
+ text-align:center;
+
+ color:#94a3b8;
+
 }
 
-.sunset-controller {
-  max-width: 520px;
-  margin: 40px auto 0;
-  padding: 24px;
-  border-radius: 24px;
 
-  background: rgba(255,255,255,.05);
 
-  backdrop-filter: blur(20px);
 
-  border: 1px solid rgba(255,255,255,.08);
+
+@media(max-width:768px){
+
+
+.page{
+
+ padding:30px 20px;
+
 }
 
-.sunset-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
+
+.hero h1{
+
+ font-size:45px;
+
 }
 
-.sunset-labels span {
-  color: #94a3b8;
-  font-size: 12px;
+
+.hero h1 span{
+
+ font-size:18px;
+
 }
 
-.sunset-labels .active {
-  color: white;
-  font-weight: 700;
+
+.section-header h2{
+
+ font-size:30px;
+
 }
 
-.sunset-slider {
-  width: 100%;
-  accent-color: #ec4899;
+
+.card-header,
+.card-footer{
+
+ flex-direction:column;
+
+ align-items:flex-start;
+
 }
 
-.sunset-times {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-  color: #94a3b8;
-  font-size: 12px;
+
+.delete-box{
+
+ width:100%;
+
 }
+
+
+.delete-box input{
+
+ width:100%;
+
+}
+
+
+}
+
 </style>
