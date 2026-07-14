@@ -229,3 +229,172 @@ def get_tourist_places():
             })
 
     return result
+
+@app.get("/api/leports")
+def get_leports_places():
+    file_path = Path(__file__).parent / "data" / "서울_레포츠.json"
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Leports data file not found"
+        )
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    result = []
+
+    for item in data.get("items", []):
+        if item.get("mapx") and item.get("mapy"):
+            result.append({
+                "id": item["contentid"],
+                "title": item["title"],
+                "address": item["addr1"],
+                "lat": float(item["mapy"]),
+                "lng": float(item["mapx"]),
+                "image": item.get("firstimage", "")
+            })
+
+    return result
+
+@app.get("/api/culture")
+def get_culture_places():
+    file_path = Path(__file__).parent / "data" / "서울_문화시설.json"
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="culture data file not found"
+        )
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    result = []
+
+    for item in data.get("items", []):
+        if item.get("mapx") and item.get("mapy"):
+            result.append({
+                "id": item["contentid"],
+                "title": item["title"],
+                "address": item["addr1"],
+                "lat": float(item["mapy"]),
+                "lng": float(item["mapx"]),
+                "image": item.get("firstimage", "")
+            })
+
+    return result
+
+@app.get("/api/shop")
+def get_shop_places():
+    file_path = Path(__file__).parent / "data" / "서울_쇼핑.json"
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="shop data file not found"
+        )
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    result = []
+
+    for item in data.get("items", []):
+        if item.get("mapx") and item.get("mapy"):
+            result.append({
+                "id": item["contentid"],
+                "title": item["title"],
+                "address": item["addr1"],
+                "lat": float(item["mapy"]),
+                "lng": float(item["mapx"]),
+                "image": item.get("firstimage", "")
+            })
+
+    return result
+
+@app.get("/api/lodge")
+def get_lodge_places():
+    file_path = Path(__file__).parent / "data" / "서울_숙박.json"
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="lodge data file not found"
+        )
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    result = []
+
+    for item in data.get("items", []):
+        if item.get("mapx") and item.get("mapy"):
+            result.append({
+                "id": item["contentid"],
+                "title": item["title"],
+                "address": item["addr1"],
+                "lat": float(item["mapy"]),
+                "lng": float(item["mapx"]),
+                "image": item.get("firstimage", "")
+            })
+
+    return result
+
+@app.get("/api/course")
+def get_course_places():
+    file_path = Path(__file__).parent / "data" / "서울_여행코스.json"
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="course data file not found"
+        )
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    result = []
+
+    for item in data.get("items", []):
+        if item.get("mapx") and item.get("mapy"):
+            result.append({
+                "id": item["contentid"],
+                "title": item["title"],
+                "address": item["addr1"],
+                "lat": float(item["mapy"]),
+                "lng": float(item["mapx"]),
+                "image": item.get("firstimage", "")
+            })
+
+    return result
+
+@app.get("/api/festival")
+def get_festival_places():
+    file_path = Path(__file__).parent / "data" / "서울_축제공연행사.json"
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="festival data file not found"
+        )
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    result = []
+
+    for item in data.get("items", []):
+        if item.get("mapx") and item.get("mapy"):
+            result.append({
+                "id": item["contentid"],
+                "title": item["title"],
+                "address": item["addr1"],
+                "lat": float(item["mapy"]),
+                "lng": float(item["mapx"]),
+                "image": item.get("firstimage", "")
+            })
+
+    return result
+
