@@ -61,6 +61,16 @@ class Meetup(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class MeetupChatMessage(Base):
+    __tablename__ = "meetup_chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    meetup_id = Column(Integer, ForeignKey("meetups.id", ondelete="CASCADE"), nullable=False, index=True)
+    nickname = Column(String(100), nullable=False, default="익명")
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
@@ -98,7 +108,7 @@ def ensure_schema() -> None:
     if "comments" not in tables:
         Base.metadata.create_all(bind=engine)
 
-    if "meetups" not in tables:
+    if "meetups" not in tables or "meetup_chat_messages" not in tables:
         Base.metadata.create_all(bind=engine)
 
 

@@ -7,6 +7,7 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const showWrite = ref(false)
 const joinDrafts = ref({})
+const joinedNicknames = ref({})
 const form = ref({
   title: '',
   host_nickname: '',
@@ -23,6 +24,8 @@ const mapError = ref('')
 const mainMapRef = ref(null)
 const writeMapRef = ref(null)
 const selectedMeetupId = ref(null)
+const chatDrafts = ref({})
+const chatMessages = ref({})
 let map = null
 let meetupMarker = null
 let userMarker = null
@@ -34,6 +37,9 @@ async function fetchMeetups() {
     const res = await fetch('http://localhost:8000/api/meetups')
     if (!res.ok) throw new Error('모임 정보를 불러오지 못했습니다.')
     meetups.value = await res.json()
+    for (const meetup of meetups.value) {
+      await fetchMeetupChat(meetup.id)
+    }
     if (map) {
       renderMarkers()
     }
@@ -41,6 +47,48 @@ async function fetchMeetups() {
     errorMessage.value = err.message
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchMeetupChat(meetupId) {
+  try {
+    const res = await fetch(`http://localhost:8000/api/meetups/${meetupId}/chat`)
+    if (!res.ok) throw new Error('채팅 내역을 불러오지 못했습니다.')
+    const messages = await res.json()
+    chatMessages.value = { ...chatMessages.value, [meetupId]: messages }
+  } catch (err) {
+    chatMessages.value = { ...chatMessages.value, [meetupId]: [] }
+  }
+}
+
+async function sendMeetupChat(meetup) {
+  const nickname = (joinedNicknames.value[meetup.id] || joinDrafts.value[meetup.id] || '').trim()
+  const content = (chatDrafts.value[meetup.id] || '').trim()
+
+  if (!nickname) {
+    errorMessage.value = '참가 후에만 채팅을 보낼 수 있습니다.'
+    return
+  }
+
+  if (!content) {
+    errorMessage.value = '채팅 내용을 입력해주세요.'
+    return
+  }
+
+  try {
+    const res = await fetch(`http://localhost:8000/api/meetups/${meetup.id}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname, content })
+    })
+
+    if (!res.ok) throw new Error('채팅 전송에 실패했습니다.')
+
+    chatDrafts.value = { ...chatDrafts.value, [meetup.id]: '' }
+    await fetchMeetupChat(meetup.id)
+    successMessage.value = '메시지를 전송했습니다.'
+  } catch (err) {
+    errorMessage.value = err.message
   }
 }
 
@@ -95,6 +143,7 @@ async function joinMeetup(meetup) {
 
     successMessage.value = `${nickname}님이 모임 참가 신청을 완료했습니다.`
     errorMessage.value = ''
+    joinedNicknames.value = { ...joinedNicknames.value, [meetup.id]: nickname }
     joinDrafts.value = { ...joinDrafts.value, [meetup.id]: '' }
     await fetchMeetups()
   } catch (err) {
@@ -289,6 +338,25 @@ onMounted(async () => {
               <input v-model="joinDrafts[meetup.id]" placeholder="참가자 닉네임" />
               <button @click="joinMeetup(meetup)">모임 참가</button>
             </div>
+
+            <div class="chat-box">
+              <div class="chat-title">모임 채팅</div>
+              <div class="chat-list">
+                <div v-if="!(chatMessages[meetup.id] || []).length" class="chat-empty">첫 인사를 남겨보세요.</div>
+                <div v-for="message in (chatMessages[meetup.id] || [])" :key="message.id" class="chat-message">
+                  <div class="chat-message-head">
+                    <strong>{{ message.nickname }}</strong>
+                    <span>{{ new Date(message.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}</span>
+                  </div>
+                  <div class="chat-message-body">{{ message.content }}</div>
+                </div>
+              </div>
+              <div class="chat-inputs">
+                <input v-model="chatDrafts[meetup.id]" :disabled="!(joinedNicknames[meetup.id] || joinDrafts[meetup.id])" placeholder="메시지를 입력하세요" @keyup.enter="sendMeetupChat(meetup)" />
+                <button :disabled="!(joinedNicknames[meetup.id] || joinDrafts[meetup.id])" @click="sendMeetupChat(meetup)">전송</button>
+              </div>
+              <p v-if="!(joinedNicknames[meetup.id] || joinDrafts[meetup.id])" class="chat-help">참가 후에만 채팅을 보낼 수 있습니다.</p>
+            </div>
           </article>
         </div>
       </div>
@@ -341,6 +409,16 @@ onMounted(async () => {
 .chip { padding: 6px 10px; border-radius: 999px; background: rgba(94,234,212,.12); color: #5EEAD4; font-size: 12px; }
 .join-box { display: flex; gap: 10px; margin-top: 12px; }
 .join-box input { flex: 1; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: white; }
+.chat-box { margin-top: 14px; padding: 12px; border-radius: 14px; background: rgba(15,23,42,.55); border: 1px solid rgba(255,255,255,.08); }
+.chat-title { font-size: 13px; font-weight: 700; color: #7AA2FF; margin-bottom: 8px; }
+.chat-list { display: grid; gap: 8px; max-height: 220px; overflow: auto; margin-bottom: 10px; }
+.chat-empty { color: #94a3b8; font-size: 13px; }
+.chat-message { padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.05); }
+.chat-message-head { display: flex; justify-content: space-between; gap: 10px; color: #e2e8f0; font-size: 12px; margin-bottom: 4px; }
+.chat-message-body { color: #f8fafc; font-size: 14px; line-height: 1.4; }
+.chat-inputs { display: flex; gap: 8px; }
+.chat-inputs input { flex: 1; padding: 9px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: white; }
+.chat-inputs button { padding: 0 12px; border-radius: 10px; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex; justify-content: center; align-items: center; z-index: 1000; }
 .modal-card { width: min(620px, 92vw); background: rgba(15,23,42,.98); border-radius: 24px; padding: 24px; }
 .modal-card input, .modal-card textarea { width: 100%; margin-bottom: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: white; }

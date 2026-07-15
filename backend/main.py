@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 
-from database import Comment, Meetup, Post, get_db
+from database import Comment, Meetup, MeetupChatMessage, Post, get_db
 from routers import chat
 
 import json
@@ -150,6 +150,22 @@ class MeetupResponse(BaseModel):
         from_attributes = True
 
 
+class MeetupChatCreate(BaseModel):
+    nickname: str = Field(min_length=1, max_length=100)
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class MeetupChatResponse(BaseModel):
+    id: int
+    meetup_id: int
+    nickname: str
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ConnectionManager:
     def __init__(self) -> None:
         self.active_connections: List[WebSocket] = []
@@ -258,6 +274,16 @@ def serialize_meetup(meetup: Meetup) -> dict:
         "participants": participants,
         "created_at": meetup.created_at,
         "updated_at": meetup.updated_at,
+    }
+
+
+def serialize_meetup_chat_message(message: MeetupChatMessage) -> dict:
+    return {
+        "id": message.id,
+        "meetup_id": message.meetup_id,
+        "nickname": message.nickname,
+        "content": message.content,
+        "created_at": message.created_at,
     }
 
 
@@ -399,6 +425,34 @@ def create_meetup(payload: MeetupCreate, db=Depends(get_db)):
 def list_meetups(db=Depends(get_db)):
     meetups = db.query(Meetup).order_by(Meetup.created_at.desc()).all()
     return [serialize_meetup(meetup) for meetup in meetups]
+
+
+@app.post("/api/meetups/{meetup_id}/chat", response_model=MeetupChatResponse, status_code=201)
+def create_meetup_chat(meetup_id: int, payload: MeetupChatCreate, db=Depends(get_db)):
+    meetup = db.query(Meetup).filter(Meetup.id == meetup_id).first()
+    if not meetup:
+        raise HTTPException(status_code=404, detail="Meetup not found")
+
+    message = MeetupChatMessage(meetup_id=meetup_id, nickname=payload.nickname, content=payload.content)
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return serialize_meetup_chat_message(message)
+
+
+@app.get("/api/meetups/{meetup_id}/chat", response_model=list[MeetupChatResponse])
+def list_meetup_chat(meetup_id: int, db=Depends(get_db)):
+    meetup = db.query(Meetup).filter(Meetup.id == meetup_id).first()
+    if not meetup:
+        raise HTTPException(status_code=404, detail="Meetup not found")
+
+    messages = (
+        db.query(MeetupChatMessage)
+        .filter(MeetupChatMessage.meetup_id == meetup_id)
+        .order_by(MeetupChatMessage.created_at.asc())
+        .all()
+    )
+    return [serialize_meetup_chat_message(message) for message in messages]
 
 
 @app.post("/api/meetups/{meetup_id}/join", response_model=MeetupResponse)

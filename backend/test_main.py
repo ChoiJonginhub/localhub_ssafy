@@ -148,6 +148,38 @@ class MeetupFeatureTests(unittest.TestCase):
         self.assertEqual(joined.json()['participants'][1], '참가자')
 
 
+class MeetupChatTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_create_and_list_meetup_chat_messages(self):
+        created = self.client.post(
+            '/api/meetups',
+            json={
+                'title': '채팅 테스트 모임',
+                'host_nickname': '모집자',
+                'recruitment_count': 3,
+                'recruitment_period': '2026-07-22',
+                'activity_content': '채팅 테스트',
+                'location': '강남역',
+                'latitude': 37.4979,
+                'longitude': 127.0276,
+            },
+        )
+        meetup_id = created.json()['id']
+
+        sent = self.client.post(
+            f'/api/meetups/{meetup_id}/chat',
+            json={'nickname': '참가자', 'content': '만나요!'}
+        )
+        self.assertEqual(sent.status_code, 201)
+
+        history = self.client.get(f'/api/meetups/{meetup_id}/chat')
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json()[0]['content'], '만나요!')
+        self.assertEqual(history.json()[0]['nickname'], '참가자')
+
+
 class CommunityRealtimeTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
