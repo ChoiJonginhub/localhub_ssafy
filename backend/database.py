@@ -43,6 +43,24 @@ class Comment(Base):
     post = relationship("Post", back_populates="comments")
 
 
+class Meetup(Base):
+    __tablename__ = "meetups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    host_nickname = Column(String(100), nullable=False)
+    recruitment_count = Column(Integer, nullable=False, default=0)
+    recruitment_period = Column(String(50), nullable=False)
+    activity_content = Column(Text, nullable=False)
+    location = Column(String(200), nullable=False)
+    latitude = Column(String(50), nullable=False, default="37.5665")
+    longitude = Column(String(50), nullable=False, default="126.9780")
+    current_participants = Column(Integer, nullable=False, default=1)
+    participants = Column(Text, nullable=False, default="[]")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
@@ -78,6 +96,9 @@ def ensure_schema() -> None:
             connection.execute(text("ALTER TABLE posts ADD COLUMN visitor_count INTEGER DEFAULT 0"))
 
     if "comments" not in tables:
+        Base.metadata.create_all(bind=engine)
+
+    if "meetups" not in tables:
         Base.metadata.create_all(bind=engine)
 
 

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 
-from database import Comment, Post, get_db
+from database import Comment, Meetup, Post, get_db
 from routers import chat
 
 import json
@@ -116,6 +116,40 @@ class CommentCreate(BaseModel):
     content: str = Field(min_length=1, max_length=1000)
 
 
+class MeetupCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    host_nickname: str = Field(min_length=1, max_length=100)
+    recruitment_count: int = Field(default=1, ge=1)
+    recruitment_period: str = Field(min_length=1, max_length=50)
+    activity_content: str = Field(min_length=1, max_length=2000)
+    location: str = Field(min_length=1, max_length=200)
+    latitude: float = Field(default=37.5665)
+    longitude: float = Field(default=126.9780)
+
+
+class MeetupJoin(BaseModel):
+    participant_nickname: str = Field(min_length=1, max_length=100)
+
+
+class MeetupResponse(BaseModel):
+    id: int
+    title: str
+    host_nickname: str
+    recruitment_count: int
+    recruitment_period: str
+    activity_content: str
+    location: str
+    latitude: float
+    longitude: float
+    current_participants: int
+    participants: List[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ConnectionManager:
     def __init__(self) -> None:
         self.active_connections: List[WebSocket] = []
@@ -205,6 +239,25 @@ def serialize_post(post: Post) -> dict:
         ],
         "created_at": post.created_at,
         "updated_at": post.updated_at,
+    }
+
+
+def serialize_meetup(meetup: Meetup) -> dict:
+    participants = json.loads(meetup.participants or "[]")
+    return {
+        "id": meetup.id,
+        "title": meetup.title,
+        "host_nickname": meetup.host_nickname,
+        "recruitment_count": meetup.recruitment_count,
+        "recruitment_period": meetup.recruitment_period,
+        "activity_content": meetup.activity_content,
+        "location": meetup.location,
+        "latitude": float(meetup.latitude),
+        "longitude": float(meetup.longitude),
+        "current_participants": meetup.current_participants,
+        "participants": participants,
+        "created_at": meetup.created_at,
+        "updated_at": meetup.updated_at,
     }
 
 
@@ -319,6 +372,53 @@ def add_comment(category: str, post_id: int, payload: CommentCreate, db=Depends(
     db.commit()
     db.refresh(post)
     return serialize_post(post)
+
+
+@app.post("/api/meetups", response_model=MeetupResponse, status_code=201)
+def create_meetup(payload: MeetupCreate, db=Depends(get_db)):
+    participants = [payload.host_nickname]
+    meetup = Meetup(
+        title=payload.title,
+        host_nickname=payload.host_nickname,
+        recruitment_count=payload.recruitment_count,
+        recruitment_period=payload.recruitment_period,
+        activity_content=payload.activity_content,
+        location=payload.location,
+        latitude=str(payload.latitude),
+        longitude=str(payload.longitude),
+        current_participants=1,
+        participants=json.dumps(participants),
+    )
+    db.add(meetup)
+    db.commit()
+    db.refresh(meetup)
+    return serialize_meetup(meetup)
+
+
+@app.get("/api/meetups", response_model=list[MeetupResponse])
+def list_meetups(db=Depends(get_db)):
+    meetups = db.query(Meetup).order_by(Meetup.created_at.desc()).all()
+    return [serialize_meetup(meetup) for meetup in meetups]
+
+
+@app.post("/api/meetups/{meetup_id}/join", response_model=MeetupResponse)
+def join_meetup(meetup_id: int, payload: MeetupJoin, db=Depends(get_db)):
+    meetup = db.query(Meetup).filter(Meetup.id == meetup_id).first()
+    if not meetup:
+        raise HTTPException(status_code=404, detail="Meetup not found")
+
+    participants = json.loads(meetup.participants or "[]")
+    if payload.participant_nickname in participants:
+        raise HTTPException(status_code=400, detail="Already joined")
+    if meetup.current_participants >= meetup.recruitment_count:
+        raise HTTPException(status_code=400, detail="Recruitment full")
+
+    participants.append(payload.participant_nickname)
+    meetup.participants = json.dumps(participants)
+    meetup.current_participants = len(participants)
+    db.commit()
+    db.refresh(meetup)
+    return serialize_meetup(meetup)
 
 
 @app.get("/api/statistics/regions")

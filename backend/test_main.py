@@ -117,6 +117,37 @@ class CommunityStatisticsTests(unittest.TestCase):
         self.assertTrue(payload['hourly_posts'])
 
 
+class MeetupFeatureTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_create_meetup_and_join(self):
+        created = self.client.post(
+            '/api/meetups',
+            json={
+                'title': '주말 산책 모임',
+                'host_nickname': '모집자',
+                'recruitment_count': 5,
+                'recruitment_period': '2026-07-20',
+                'activity_content': '한강 산책',
+                'location': '한강공원',
+                'latitude': 37.5271,
+                'longitude': 126.9344,
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        payload = created.json()
+        self.assertEqual(payload['current_participants'], 1)
+
+        joined = self.client.post(
+            f"/api/meetups/{payload['id']}/join",
+            json={'participant_nickname': '참가자'}
+        )
+        self.assertEqual(joined.status_code, 200)
+        self.assertEqual(joined.json()['current_participants'], 2)
+        self.assertEqual(joined.json()['participants'][1], '참가자')
+
+
 class CommunityRealtimeTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
@@ -142,6 +173,7 @@ class CommunityRealtimeTests(unittest.TestCase):
                 region='강남구',
                 like_count=0,
                 view_count=0,
+                visitor_count=0,
                 comments=[],
                 created_at=datetime(2024, 1, 1, 12, 0, 0),
                 updated_at=datetime(2024, 1, 1, 12, 0, 0),

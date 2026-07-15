@@ -31,6 +31,10 @@
 커뮤니티
 </router-link>
 
+<router-link to="/meetups">
+모임
+</router-link>
+
 
 </div>
 
