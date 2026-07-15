@@ -4,14 +4,46 @@ from typing import List
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 
-from database import Post, get_db
-#from routers import chat
+from database import Comment, Post, get_db
+from routers import chat
 
 import json
 from pathlib import Path
 
 app = FastAPI(title="Localhub Anonymous Community API")
+
+COMMUNITY_OPTIONS = {
+    "regions": [
+        "강남구",
+        "강동구",
+        "강북구",
+        "강서구",
+        "관악구",
+        "광진구",
+        "구로구",
+        "금천구",
+        "노원구",
+        "도봉구",
+        "동대문구",
+        "동작구",
+        "마포구",
+        "서대문구",
+        "서초구",
+        "성동구",
+        "성북구",
+        "송파구",
+        "양천구",
+        "영등포구",
+        "용산구",
+        "은평구",
+        "종로구",
+        "중구",
+        "중랑구",
+    ],
+    "categories": ["맛집", "카페", "관광", "숙소", "교통", "행사", "쇼핑", "사진명소"],
+}
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,35 +53,57 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#app.include_router(chat.router)
+app.include_router(chat.router)
 
 
 class PostCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     content: str = Field(min_length=1, max_length=2000)
     password: str = Field(min_length=1, max_length=100)
+    region: str = Field(default="기타")
+    category: str = Field(default="기타")
 
 
 class PostUpdate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     content: str = Field(min_length=1, max_length=2000)
     password: str = Field(min_length=1, max_length=100)
+    region: str = Field(default="기타")
+    category: str = Field(default="기타")
 
 
 class PostDelete(BaseModel):
     password: str = Field(min_length=1, max_length=100)
 
 
+class CommentResponse(BaseModel):
+    id: int
+    content: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class PostResponse(BaseModel):
     id: int
+    board_category: str
     category: str
     title: str
     content: str
+    region: str
+    like_count: int
+    view_count: int
+    comments: List[CommentResponse]
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class CommentCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=1000)
 
 
 class ConnectionManager:
@@ -120,21 +174,51 @@ def root():
     return {"message": "Anonymous community API is running"}
 
 
+def serialize_post(post: Post) -> dict:
+    return {
+        "id": post.id,
+        "board_category": post.board_category,
+        "category": post.category,
+        "title": post.title,
+        "content": post.content,
+        "region": post.region,
+        "like_count": post.like_count,
+        "view_count": post.view_count,
+        "comments": [
+            {
+                "id": comment.id,
+                "content": comment.content,
+                "created_at": comment.created_at,
+            }
+            for comment in post.comments
+        ],
+        "created_at": post.created_at,
+        "updated_at": post.updated_at,
+    }
+
+
+@app.get("/api/community/options")
+def get_community_options():
+    return COMMUNITY_OPTIONS
+
+
 @app.get("/api/boards/{category}/posts", response_model=list[PostResponse])
 def list_posts(category: str, db=Depends(get_db)):
     posts = (
         db.query(Post)
-        .filter(Post.category == category)
+        .filter(Post.board_category == category)
         .order_by(Post.created_at.desc())
         .all()
     )
-    return posts
+    return [serialize_post(post) for post in posts]
 
 
 @app.post("/api/boards/{category}/posts", response_model=PostResponse, status_code=201)
 async def create_post(category: str, payload: PostCreate, db=Depends(get_db)):
     post = Post(
-        category=category,
+        board_category=category,
+        region=payload.region,
+        category=payload.category,
         title=payload.title,
         content=payload.content,
         password=payload.password,
@@ -143,45 +227,40 @@ async def create_post(category: str, payload: PostCreate, db=Depends(get_db)):
     db.commit()
     db.refresh(post)
 
-    response = PostResponse(
-        id=post.id,
-        category=post.category,
-        title=post.title,
-        content=post.content,
-        created_at=post.created_at,
-        updated_at=post.updated_at,
-    )
-    await manager.broadcast_post(response)
+    response = serialize_post(post)
+    await manager.broadcast_post(PostResponse(**response))
     return response
 
 
 @app.get("/api/boards/{category}/posts/{post_id}", response_model=PostResponse)
 def get_post(category: str, post_id: int, db=Depends(get_db)):
-    post = db.query(Post).filter(Post.category == category, Post.id == post_id).first()
+    post = db.query(Post).filter(Post.board_category == category, Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    return post
+    return serialize_post(post)
 
 
 @app.put("/api/boards/{category}/posts/{post_id}", response_model=PostResponse)
 def update_post(category: str, post_id: int, payload: PostUpdate, db=Depends(get_db)):
-    post = db.query(Post).filter(Post.category == category, Post.id == post_id).first()
+    post = db.query(Post).filter(Post.board_category == category, Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     if post.password != payload.password:
         raise HTTPException(status_code=403, detail="Password does not match")
 
+    post.region = payload.region
+    post.category = payload.category
     post.title = payload.title
     post.content = payload.content
     post.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(post)
-    return post
+    return serialize_post(post)
 
 
 @app.delete("/api/boards/{category}/posts/{post_id}", status_code=204)
 async def delete_post(category: str, post_id: int, payload: PostDelete, db=Depends(get_db)):
-    post = db.query(Post).filter(Post.category == category, Post.id == post_id).first()
+    post = db.query(Post).filter(Post.board_category == category, Post.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     if post.password != payload.password:
@@ -190,6 +269,60 @@ async def delete_post(category: str, post_id: int, payload: PostDelete, db=Depen
     db.delete(post)
     db.commit()
     return None
+
+
+@app.post("/api/boards/{category}/posts/{post_id}/like", response_model=PostResponse)
+def like_post(category: str, post_id: int, db=Depends(get_db)):
+    post = db.query(Post).filter(Post.board_category == category, Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    post.like_count += 1
+    db.commit()
+    db.refresh(post)
+    return serialize_post(post)
+
+
+@app.post("/api/boards/{category}/posts/{post_id}/view", response_model=PostResponse)
+def view_post(category: str, post_id: int, db=Depends(get_db)):
+    post = db.query(Post).filter(Post.board_category == category, Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    post.view_count += 1
+    db.commit()
+    db.refresh(post)
+    return serialize_post(post)
+
+
+@app.post("/api/boards/{category}/posts/{post_id}/comments", response_model=PostResponse, status_code=201)
+def add_comment(category: str, post_id: int, payload: CommentCreate, db=Depends(get_db)):
+    post = db.query(Post).filter(Post.board_category == category, Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    comment = Comment(content=payload.content, post=post)
+    db.add(comment)
+    db.commit()
+    db.refresh(post)
+    return serialize_post(post)
+
+
+@app.get("/api/statistics/regions")
+def get_region_statistics(db=Depends(get_db)):
+    rows = (
+        db.query(Post.region.label("region"), func.count(Post.id).label("post_count"))
+        .group_by(Post.region)
+        .all()
+    )
+    regions = [{"region": row.region, "post_count": row.post_count} for row in rows]
+    regions.sort(key=lambda item: item["post_count"], reverse=True)
+    return {
+        "total_posts": db.query(Post).count(),
+        "region_count": len(regions),
+        "regions": regions,
+        "popular_regions": regions[:5],
+    }
 
 
 @app.websocket("/ws/notifications")
