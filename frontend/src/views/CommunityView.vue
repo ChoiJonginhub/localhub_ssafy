@@ -229,15 +229,58 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="community" :style="skyStyle">
-    <header>
-      <h1>Community</h1>
-      <p>서울 시민들의 실시간 커뮤니티</p>
-      <div class="theme-pill">
-        <span>현재 {{ currentTimeLabel }}</span>
-        <span>{{ timeLabel }} · {{ timeRangeLabel }}</span>
+    <header class="hero">
+  <div class="hero-bg"></div>
+
+  <div class="hero-content">
+    <span class="hero-badge">
+      🌆 Seoul Community
+    </span>
+
+    <h1>
+      서울 실시간 커뮤니티
+    </h1>
+
+    <p>
+      오늘 서울에서 일어나는 이야기를
+      실시간으로 공유해보세요.
+    </p>
+
+    <div class="hero-info">
+
+      <div class="info-card">
+        <span>🕒</span>
+        <div>
+          <small>현재 시간</small>
+          <b>{{ currentTimeLabel }}</b>
+        </div>
       </div>
-      <button class="plus" @click="showWrite = true">+</button>
-    </header>
+
+      <div class="info-card">
+        <span>👥</span>
+        <div>
+          <small>접속자</small>
+          <b>{{ onlineCount }}명</b>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <span>🌅</span>
+        <div>
+          <small>테마</small>
+          <b>{{ timeLabel }}</b>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <button class="write-btn" @click="showWrite=true">
+    ✏ 새 글 작성
+  </button>
+
+</header>
 
     <div v-if="showWrite" class="modal">
       <div class="modal-card">
@@ -280,26 +323,94 @@ onBeforeUnmount(() => {
     <p class="success">{{ successMessage }}</p>
     <div class="notice">{{ notificationMessage }}</div>
 
+    <div class="post-grid">
     <article v-for="post in sortedPosts" :key="post.id" class="post" :class="{ popular: isPopular(post) }">
-      <div class="post-header">
-        <div>
-          <div class="post-meta">{{ post.region }} · {{ post.category }}</div>
-          <h2>{{ post.title }}</h2>
-        </div>
-        <span v-if="isPopular(post)" class="hot-tag">인기</span>
+
+    <div class="card-top">
+
+  <div class="left">
+
+    <div class="avatar">
+      {{ post.region[0] }}
+    </div>
+
+    <div>
+
+      <div class="chips">
+
+        <span class="chip location">
+          📍 {{ post.region }}
+        </span>
+
+        <span class="chip category">
+          {{ post.category }}
+        </span>
+
+        <span
+          v-if="isPopular(post)"
+          class="chip hot"
+        >
+          🔥 인기
+        </span>
+
       </div>
 
-      <div class="summary-row">
-        <span>좋아요 {{ post.like_count || 0 }}</span>
-        <span>조회 {{ post.view_count || 0 }}</span>
-        <span>댓글 {{ (post.comments || []).length }}</span>
-      </div>
+      <h2>{{ post.title }}</h2>
 
+    </div>
+
+  </div>
+
+</div>
+
+<p
+class="preview"
+v-if="!expandedPostIds.includes(post.id)"
+>
+{{ post.content.slice(0,120) }}
+<span v-if="post.content.length>120">...</span>
+</p>
+
+<div class="summary-row">
+
+    <div class="summary-item">
+        ❤️
+        <span>{{ post.like_count || 0 }}</span>
+    </div>
+
+    <div class="summary-item">
+        💬
+        <span>{{ (post.comments || []).length }}</span>
+    </div>
+
+    <div class="summary-item">
+        👁
+        <span>{{ post.view_count || 0 }}</span>
+    </div>
+
+</div>
       <div class="buttons">
-        <button class="secondary" @click="likePost(post.id)">좋아요</button>
-        <button class="secondary" @click="togglePost(post)">{{ expandedPostIds.includes(post.id) ? '내용 접기' : '내용 보기' }}</button>
-        <button @click="startEdit(post)">수정</button>
-      </div>
+
+<button class="icon-btn like"
+@click="likePost(post.id)">
+❤️ 좋아요
+</button>
+
+<button
+class="icon-btn view"
+@click="togglePost(post)"
+>
+{{ expandedPostIds.includes(post.id) ? '📖 접기' : '📖 내용 보기' }}
+</button>
+
+<button
+class="icon-btn edit"
+@click="startEdit(post)"
+>
+✏ 수정
+</button>
+
+</div>
 
       <div v-if="expandedPostIds.includes(post.id)" class="content-panel">
         <p class="content">{{ post.content }}</p>
@@ -313,17 +424,40 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="comment-form">
-            <textarea v-model="commentDrafts[post.id]" rows="3" placeholder="댓글을 입력하세요" />
-            <button class="secondary" @click="submitComment(post.id)">댓글 등록</button>
-          </div>
+  <textarea
+    v-model="commentDrafts[post.id]"
+    rows="3"
+    placeholder="💬 댓글을 입력해보세요..."
+  />
+
+  <button
+    class="comment-submit"
+    @click="submitComment(post.id)"
+  >
+    등록하기 →
+  </button>
+</div>
         </div>
       </div>
 
       <div class="delete-box">
-        <input v-model="deletePasswords[post.id]" type="password" placeholder="삭제 비밀번호" />
-        <button class="delete" @click="deletePost(post.id)">삭제</button>
-      </div>
+
+  <input
+    v-model="deletePasswords[post.id]"
+    type="password"
+    placeholder="🔒 삭제 비밀번호"
+  />
+
+  <button
+    class="delete"
+    @click="deletePost(post.id)"
+  >
+    🗑 삭제
+  </button>
+
+</div>
     </article>
+    </div>
   </div>
 </template>
 
@@ -335,53 +469,181 @@ onBeforeUnmount(() => {
   color: #f8fafc;
 }
 
-header {
-  margin-bottom: 32px;
-  text-align: center;
-  position: relative;
+.hero{
+    position:relative;
+    overflow:hidden;
+    padding:90px 60px;
+    margin-bottom:45px;
+
+    border-radius:35px;
+
+    background:
+    linear-gradient(135deg,
+    rgba(29,78,216,.55),
+    rgba(15,23,42,.75),
+    rgba(88,28,135,.65));
+
+    border:1px solid rgba(255,255,255,.08);
+
+    box-shadow:
+    0 20px 60px rgba(0,0,0,.35);
 }
 
-header h1 {
-  font-size: 72px;
-  font-weight: 900;
-  margin: 0;
-  background: linear-gradient(135deg, #fff, #ffd369, #93c5fd);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+.hero-bg{
+
+    position:absolute;
+
+    inset:0;
+
+    background:
+
+    radial-gradient(circle at 20% 20%,
+    rgba(59,130,246,.45),
+    transparent 35%),
+
+    radial-gradient(circle at 80% 30%,
+    rgba(168,85,247,.35),
+    transparent 30%),
+
+    radial-gradient(circle at 50% 100%,
+    rgba(255,170,0,.18),
+    transparent 45%);
+
+    filter:blur(20px);
 }
 
-.theme-pill {
-  display: inline-flex;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 16px;
-  margin: 12px 0 0;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: #f8fafc;
-  font-size: 13px;
-  font-weight: 700;
+.hero-content{
+
+    position:relative;
+
+    z-index:2;
 }
 
-.plus {
-  position: fixed;
-  right: 40px;
-  bottom: 80px;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  font-size: 28px;
-  background: linear-gradient(135deg, #ffd369, #ff8a00);
-  box-shadow: 0 20px 40px rgba(255, 180, 0, 0.35);
-  z-index: 100;
+.hero-badge{
+
+    display:inline-block;
+
+    padding:10px 18px;
+
+    border-radius:999px;
+
+    background:rgba(255,255,255,.12);
+
+    border:1px solid rgba(255,255,255,.12);
+
+    font-weight:700;
+
+    margin-bottom:20px;
+}
+
+.hero h1{
+
+    font-size:72px;
+
+    line-height:1.05;
+
+    margin:0;
+
+    font-weight:900;
+
+    background:
+    linear-gradient(135deg,#fff,#ffe082,#60a5fa);
+
+    -webkit-background-clip:text;
+
+    color:transparent;
+}
+
+.hero p{
+
+    font-size:20px;
+
+    margin-top:22px;
+
+    color:#dbeafe;
+
+    line-height:1.7;
+}
+
+.hero-info{
+
+    display:flex;
+
+    gap:18px;
+
+    margin-top:45px;
+
+    flex-wrap:wrap;
+}
+
+.info-card{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:15px;
+
+    padding:18px 22px;
+
+    min-width:190px;
+
+    border-radius:20px;
+
+    backdrop-filter:blur(18px);
+
+    background:rgba(255,255,255,.08);
+
+    border:1px solid rgba(255,255,255,.08);
+}
+
+.info-card span{
+
+    font-size:32px;
+}
+
+.info-card small{
+
+    color:#cbd5e1;
+
+    display:block;
+}
+
+.info-card b{
+
+    font-size:18px;
+}
+
+.write-btn{
+
+    position:absolute;
+
+    right:45px;
+
+    bottom:45px;
+
+    padding:18px 28px;
+
+    border-radius:18px;
+
+    font-size:16px;
+
+    background:linear-gradient(135deg,#ffcf5c,#ff8c42);
+
+    box-shadow:0 12px 35px rgba(255,170,0,.35);
+
+    transition:.3s;
+}
+
+.write-btn:hover{
+
+    transform:translateY(-4px) scale(1.03);
 }
 
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(12px);
   display: flex;
   justify-content: center;
@@ -389,14 +651,42 @@ header h1 {
   z-index: 999;
 }
 
-.modal-card {
-  width: 700px;
-  max-width: 92%;
-  padding: 32px;
-  border-radius: 24px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+.modal-card{
+
+    width:600px;
+
+    padding:28px;
+
+    border-radius:24px;
+}
+
+.modal-card h2{
+
+    font-size:26px;
+
+    margin-bottom:24px;
+
+    text-align:center;
+}
+
+.modal-card input,
+.modal-card textarea,
+.modal-card select{
+
+    margin-bottom:16px;
+
+    background:rgba(255,255,255,.09);
+
+    transition:.25s;
+}
+
+.modal-card input:focus,
+.modal-card textarea:focus,
+.modal-card select:focus{
+
+    border-color:#60a5fa;
+
+    box-shadow:0 0 0 3px rgba(96,165,250,.2);
 }
 
 .close-btn {
@@ -462,14 +752,7 @@ button.delete {
 .error { color: #fb7185; }
 .success { color: #4ade80; }
 
-.post {
-  margin-top: 20px;
-  padding: 20px;
-  border-radius: 20px;
-  background: rgba(2, 6, 23, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 16px 45px rgba(2, 6, 23, 0.24);
-}
+
 
 .post.popular {
   border-color: rgba(250, 204, 21, 0.7);
@@ -488,12 +771,190 @@ button.delete {
   margin-bottom: 4px;
 }
 
-.hot-tag {
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  background: rgba(250, 204, 21, 0.2);
-  color: #fde68a;
+.post{
+
+
+    padding:28px;
+
+    border-radius:26px;
+
+    background:rgba(255,255,255, 0.2);
+
+    backdrop-filter:blur(18px);
+
+    border:1px solid rgba(255,255,255,.08);
+
+    transition:.35s;
+
+    overflow:hidden;
+}
+
+.post:hover{
+
+    transform:translateY(-8px);
+
+    border-color:#60a5fa;
+
+    box-shadow:
+    0 20px 60px rgba(0,0,0,.28);
+}
+.modal-card select{
+    appearance:none;
+
+    background:rgba(255,255,255,.08);
+
+    color:#fff;
+
+    border:1px solid rgba(255,255,255,.15);
+
+    padding:14px 18px;
+
+    border-radius:14px;
+}
+
+.modal-card option{
+
+    background:#1e293b;
+
+    color:white;
+}
+.card-top{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:flex-start;
+}
+
+.left{
+
+    display:flex;
+
+    gap:18px;
+}
+
+.avatar{
+
+    width:58px;
+
+    height:58px;
+
+    border-radius:50%;
+
+    background:linear-gradient(
+    135deg,
+    #3b82f6,
+    #8b5cf6);
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:24px;
+
+    font-weight:bold;
+
+    color:white;
+
+    box-shadow:
+    0 10px 30px rgba(59,130,246,.4);
+}
+
+.chips{
+
+    display:flex;
+
+    gap:8px;
+
+    flex-wrap:wrap;
+
+    margin-bottom:10px;
+}
+
+.chip{
+
+    padding:6px 12px;
+
+    border-radius:999px;
+
+    font-size:12px;
+
+    font-weight:700;
+}
+
+.location{
+
+background:rgba(37,99,235,.18);
+
+color:#93c5fd;
+
+}
+
+.category{
+
+background:rgba(255,255,255,.08);
+
+color:#e5e7eb;
+
+}
+
+.hot{
+
+background:rgba(245,158,11,.15);
+
+color:#ffd166;
+
+}
+
+.post h2{
+
+    margin:0;
+
+    font-size:30px;
+
+    font-weight:800;
+}
+
+.preview{
+
+    margin-top:20px;
+
+    color:#d1d5db;
+
+    line-height:1.8;
+
+    font-size:15px;
+}
+
+.summary-row{
+
+    display:flex;
+
+    gap:26px;
+
+    margin-top:24px;
+
+    padding-top:20px;
+
+    border-top:1px solid rgba(255,255,255,.08);
+}
+
+.summary-item{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:8px;
+
+    font-weight:700;
+
+    color:#e5e7eb;
+
+    font-size:15px;
 }
 
 .summary-row {
@@ -562,5 +1023,88 @@ button.delete {
   .meta-grid { grid-template-columns: 1fr; }
   .delete-box { flex-direction: column; }
   .delete-box input { width: 100%; }
+}
+
+.buttons{
+
+display:flex;
+
+gap:12px;
+
+margin-top:22px;
+
+}
+
+.icon-btn{
+
+padding:12px 20px;
+
+border:none;
+
+border-radius:14px;
+
+font-weight:700;
+
+transition:.25s;
+}
+
+.post-grid{
+
+display:grid;
+
+grid-template-columns:
+repeat(2,minmax(0,1fr));
+
+gap:24px;
+
+align-items:start;
+
+}
+
+.like{
+
+background:#ec4899;
+}
+
+.view{
+
+background:#334155;
+}
+
+.edit{
+
+background:#f59e0b;
+}
+
+.icon-btn:hover{
+
+transform:translateY(-3px);
+
+filter:brightness(1.08);
+
+box-shadow:0 10px 25px rgba(0,0,0,.25);
+}
+
+.like{
+
+background:#2563eb;
+
+}
+
+.view{
+
+background:rgba(255,255,255,.08);
+
+}
+
+.edit{
+
+background:rgba(255,255,255,.08);
+
+}
+
+.delete{
+
+background:#ef4444;
 }
 </style>
