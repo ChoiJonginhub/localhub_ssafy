@@ -54,6 +54,8 @@ app.add_middleware(
         "http://localhost:5174",
         "http://127.0.0.1:3000",
         "http://localhost:3000",
+        "https://44afy.netlify.app",
+        "http://44afy.netlify.app",
     ],
     allow_credentials=False,
     allow_methods=["*"],

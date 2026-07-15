@@ -33,7 +33,7 @@ const communityMeta = ref({
 
 async function fetchOptions() {
   try {
-    const res = await fetch('http://localhost:8000/api/community/options')
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/community/options`)
     if (!res.ok) throw new Error('옵션 정보를 불러오지 못했습니다.')
     options.value = await res.json()
   } catch (err) {
@@ -44,7 +44,7 @@ async function fetchOptions() {
 async function fetchPosts() {
   try {
     loading.value = true
-    const res = await fetch(`http://localhost:8000/api/boards/${category}/posts`)
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/boards/${category}/posts`)
     if (!res.ok) throw new Error('게시글을 불러오지 못했습니다.')
     posts.value = await res.json()
   } catch (err) {
@@ -80,7 +80,7 @@ async function submitForm() {
     return
   }
 
-  const url = `http://localhost:8000/api/boards/${category}/posts${editingId.value ? `/${editingId.value}` : ''}`
+  const url = `${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/boards/${category}/posts${editingId.value ? `/${editingId.value}` : ''}`
   const method = editingId.value ? 'PUT' : 'POST'
 
   try {
@@ -113,7 +113,7 @@ async function deletePost(id) {
   }
 
   try {
-    const res = await fetch(`http://localhost:8000/api/boards/${category}/posts/${id}`, {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/boards/${category}/posts/${id}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
@@ -147,7 +147,7 @@ const sortedPosts = computed(() => {
 
 async function viewPost(postId) {
   try {
-    const res = await fetch(`http://localhost:8000/api/boards/${category}/posts/${postId}/view`, { method: 'POST' })
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/boards/${category}/posts/${postId}/view`, { method: 'POST' })
     if (!res.ok) return
     const updatedPost = await res.json()
     posts.value = posts.value.map((post) => (post.id === postId ? updatedPost : post))
@@ -158,7 +158,7 @@ async function viewPost(postId) {
 
 async function likePost(postId) {
   try {
-    const res = await fetch(`http://localhost:8000/api/boards/${category}/posts/${postId}/like`, { method: 'POST' })
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/boards/${category}/posts/${postId}/like`, { method: 'POST' })
     if (!res.ok) throw new Error('좋아요 처리에 실패했습니다.')
     const updatedPost = await res.json()
     posts.value = posts.value.map((post) => (post.id === postId ? updatedPost : post))
@@ -175,7 +175,7 @@ async function submitComment(postId) {
   }
 
   try {
-    const res = await fetch(`http://localhost:8000/api/boards/${category}/posts/${postId}/comments`, {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/boards/${category}/posts/${postId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content })
@@ -193,7 +193,8 @@ async function submitComment(postId) {
 }
 
 function connectSocket() {
-  socket.value = new WebSocket(`ws://localhost:8000/ws/notifications?client_id=${Date.now()}`)
+  const wsBase = (import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com').replace(/^https?:/,'wss:')
+  socket.value = new WebSocket(`${wsBase}/ws/notifications?client_id=${Date.now()}`)
 
   socket.value.onmessage = (event) => {
     const data = JSON.parse(event.data)

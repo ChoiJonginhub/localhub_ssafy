@@ -34,7 +34,7 @@ async function fetchMeetups() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const res = await fetch('http://localhost:8000/api/meetups')
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/meetups`)
     if (!res.ok) throw new Error('모임 정보를 불러오지 못했습니다.')
     meetups.value = await res.json()
     for (const meetup of meetups.value) {
@@ -99,7 +99,7 @@ async function submitForm() {
   }
 
   try {
-    const res = await fetch('http://localhost:8000/api/meetups', {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/meetups`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.value)
@@ -133,7 +133,7 @@ async function joinMeetup(meetup) {
   }
 
   try {
-    const res = await fetch(`http://localhost:8000/api/meetups/${meetup.id}/join`, {
+    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://localhub-ssafy-34ya.onrender.com'}/api/meetups/${meetup.id}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ participant_nickname: nickname })

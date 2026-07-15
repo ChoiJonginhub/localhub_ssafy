@@ -132,7 +132,7 @@ async function loadMarkers(category = "tourist") {
   clearMarkers()
 
   const response = await fetch(
-    `http://localhost:8000/api/${category}`
+    `${import.meta.env.VITE_API_BASE_URL || "https://localhub-ssafy-34ya.onrender.com"}/api/${category}`
   )
 
   if (!response.ok) {
