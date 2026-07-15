@@ -70,7 +70,7 @@
 import { ref, nextTick, onMounted } from "vue";
 
 // 백엔드 주소. Vite 프로젝트라면 .env에 VITE_API_BASE_URL 설정 후 사용 권장
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://localhub-ssafy-34ya.onrender.com").replace(/\/$/, "");
 
 const isOpen = ref(false);
 const messages = ref([]);
