@@ -1,6 +1,7 @@
 <script setup>
 
 import MapView from "@/components/MapView.vue"
+import Dashboard from "@/components/Dashboard.vue"
 
 </script>
 
@@ -28,6 +29,7 @@ import MapView from "@/components/MapView.vue"
 <MapView />
 
 
+<Dashboard />
 
 </div>
 
