@@ -47,7 +47,14 @@ COMMUNITY_OPTIONS = {
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+    allow_origins=[
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:5174",
+        "http://localhost:5174",
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -310,18 +317,46 @@ def add_comment(category: str, post_id: int, payload: CommentCreate, db=Depends(
 
 @app.get("/api/statistics/regions")
 def get_region_statistics(db=Depends(get_db)):
-    rows = (
+    region_rows = (
         db.query(Post.region.label("region"), func.count(Post.id).label("post_count"))
         .group_by(Post.region)
         .all()
     )
-    regions = [{"region": row.region, "post_count": row.post_count} for row in rows]
+    category_rows = (
+        db.query(Post.category.label("category"), func.count(Post.id).label("post_count"))
+        .group_by(Post.category)
+        .all()
+    )
+
+    regions = [{"region": row.region, "post_count": row.post_count} for row in region_rows]
+    categories = [{"category": row.category, "post_count": row.post_count} for row in category_rows]
     regions.sort(key=lambda item: item["post_count"], reverse=True)
+    categories.sort(key=lambda item: item["post_count"], reverse=True)
+
+    views_rows = (
+        db.query(Post.region.label("region"), func.sum(Post.view_count).label("total_views"))
+        .group_by(Post.region)
+        .all()
+    )
+    likes_rows = (
+        db.query(Post.region.label("region"), func.sum(Post.like_count).label("total_likes"))
+        .group_by(Post.region)
+        .all()
+    )
+
     return {
         "total_posts": db.query(Post).count(),
         "region_count": len(regions),
         "regions": regions,
         "popular_regions": regions[:5],
+        "categories": categories,
+        "popular_categories": categories[:5],
+        "views": [
+            {"region": row.region, "total_views": int(row.total_views or 0)} for row in views_rows
+        ],
+        "likes": [
+            {"region": row.region, "total_likes": int(row.total_likes or 0)} for row in likes_rows
+        ],
     }
 
 

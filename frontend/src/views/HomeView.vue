@@ -1,93 +1,8 @@
 <script setup>
+import { computed } from "vue"
+import { useSunsetTheme } from "@/composables/useSunsetTheme.js"
 
-import { ref, computed } from "vue"
-
-
-const sunsetProgress = ref(50)
-
-
-
-const gradients = [
-  ["#ff9a44", "#fc6076", "#ff5858"],
-  ["#ff7eb3", "#7c4dff", "#5e60ce"],
-  ["#3b82f6", "#1e3a8a", "#020617"]
-]
-
-function lerp(a, b, t) {
-  return a + (b - a) * t
-}
-
-function hexToRgb(hex) {
-  const n = parseInt(hex.slice(1), 16)
-
-  return {
-    r: (n >> 16) & 255,
-    g: (n >> 8) & 255,
-    b: n & 255
-  }
-}
-
-function rgbToHex({ r, g, b }) {
-  return (
-    "#" +
-    [r, g, b]
-      .map(v =>
-        Math.round(v)
-          .toString(16)
-          .padStart(2, "0")
-      )
-      .join("")
-  )
-}
-
-function mix(c1, c2, t) {
-
-  const a = hexToRgb(c1)
-  const b = hexToRgb(c2)
-
-  return rgbToHex({
-
-    r: lerp(a.r, b.r, t),
-    g: lerp(a.g, b.g, t),
-    b: lerp(a.b, b.b, t)
-
-  })
-
-}
-
-const skyStyle = computed(() => {
-
-  const p = sunsetProgress.value / 100
-
-  const idx = p < 0.5 ? 0 : 1
-
-  const t = p < 0.5 ? p * 2 : (p - 0.5) * 2
-
-  const colors = gradients[idx].map((c, i) =>
-    mix(c, gradients[idx + 1][i], t)
-  )
-
-  return {
-
-    background: `
-radial-gradient(circle at 20% 20%, ${colors[0]}55, transparent 40%),
-radial-gradient(circle at 80% 30%, ${colors[1]}66, transparent 45%),
-radial-gradient(circle at 50% 80%, ${colors[2]}66, transparent 45%),
-linear-gradient(135deg,
-${colors[0]},
-${colors[1]},
-${colors[2]})
-`,
-
-    backgroundSize: "300% 300%",
-    backgroundPosition: `${sunsetProgress.value}% 50%`
-
-  }
-
-})
-
-
-
+const { sunsetProgress, skyStyle, timeLabel, timeRangeLabel, currentTimeLabel } = useSunsetTheme()
 
 </script>
 
@@ -152,45 +67,12 @@ Seoul AI
 
 
 <div class="controller">
-
-
-<div class="controller-title">
-
-🌅 Sunset Theme
-
-</div>
-
-
-
-<input
-
-v-model="sunsetProgress"
-
-type="range"
-
-min="0"
-
-max="100"
-
-/>
-
-
-
-<div class="time">
-
-<span>
-17:20
-</span>
-
-
-<span>
-20:40
-</span>
-
-</div>
-
-
-
+  <div class="controller-title">🌅 Sunset Theme</div>
+  <div class="time-inline">
+    <span>현재 {{ currentTimeLabel }}</span>
+    <span>{{ timeLabel }} · {{ timeRangeLabel }}</span>
+  </div>
+  <input v-model="sunsetProgress" type="range" min="0" max="100" />
 </div>
 
 

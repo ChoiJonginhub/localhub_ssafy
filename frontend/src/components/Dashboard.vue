@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from "vue"
-import { Bar, Doughnut } from "vue-chartjs"
+import { Bar, Doughnut, Line } from "vue-chartjs"
 
 import {
   Chart as ChartJS,
@@ -10,7 +10,9 @@ import {
   BarElement,
   ArcElement,
   CategoryScale,
-  LinearScale
+  LinearScale,
+  PointElement,
+  LineElement
 } from "chart.js"
 
 ChartJS.register(
@@ -20,7 +22,9 @@ ChartJS.register(
   BarElement,
   ArcElement,
   CategoryScale,
-  LinearScale
+  LinearScale,
+  PointElement,
+  LineElement
 )
 
 const loading = ref(true)
@@ -30,7 +34,11 @@ const statistics = ref({
   total_posts: 0,
   region_count: 0,
   regions: [],
-  popular_regions: []
+  popular_regions: [],
+  categories: [],
+  popular_categories: [],
+  views: [],
+  likes: []
 })
 
 const barChartData = computed(() => {
@@ -56,28 +64,86 @@ const barChartData = computed(() => {
 
 const doughnutChartData = computed(() => {
   return {
-    labels: statistics.value.popular_regions.map(
-      item => item.region
-    ),
-
+    labels: statistics.value.popular_regions.map(item => item.region),
     datasets: [
       {
         label: "게시글 수",
-
-        data: statistics.value.popular_regions.map(
-          item => item.post_count
-        ),
-
-        backgroundColor: [
-          "#7AA2FF",
-          "#5EEAD4",
-          "#C084FC",
-          "#FFD369",
-          "#FF7A7A"
-        ],
-
+        data: statistics.value.popular_regions.map(item => item.post_count),
+        backgroundColor: ["#7AA2FF", "#5EEAD4", "#C084FC", "#FFD369", "#FF7A7A"],
         borderWidth: 0,
         hoverOffset: 10
+      }
+    ]
+  }
+})
+
+const categoryBarChartData = computed(() => {
+  return {
+    labels: statistics.value.categories.map(item => item.category),
+    datasets: [
+      {
+        label: "카테고리 게시글 수",
+        data: statistics.value.categories.map(item => item.post_count),
+        backgroundColor: "rgba(94, 234, 212, 0.75)",
+        borderColor: "#5EEAD4",
+        borderWidth: 1,
+        borderRadius: 8,
+        borderSkipped: false
+      }
+    ]
+  }
+})
+
+const categoryDoughnutData = computed(() => {
+  return {
+    labels: statistics.value.popular_categories.map(item => item.category),
+    datasets: [
+      {
+        label: "카테고리 분포",
+        data: statistics.value.popular_categories.map(item => item.post_count),
+        backgroundColor: ["#5EEAD4", "#C084FC", "#FFD369", "#7AA2FF", "#FF7A7A"],
+        borderWidth: 0,
+        hoverOffset: 10
+      }
+    ]
+  }
+})
+
+const categoryLineData = computed(() => {
+  return {
+    labels: statistics.value.categories.map(item => item.category),
+    datasets: [
+      {
+        label: "카테고리 추세",
+        data: statistics.value.categories.map(item => item.post_count),
+        borderColor: "#FFD369",
+        backgroundColor: "rgba(255, 211, 105, 0.2)",
+        fill: true,
+        tension: 0.35,
+        pointBackgroundColor: "#FFD369",
+        pointBorderColor: "#fff"
+      }
+    ]
+  }
+})
+
+const interactionBarData = computed(() => {
+  const viewsTotal = Array.isArray(statistics.value.views)
+    ? statistics.value.views.reduce((sum, item) => sum + (Number(item?.total_views) || 0), 0)
+    : 0
+
+  const likesTotal = Array.isArray(statistics.value.likes)
+    ? statistics.value.likes.reduce((sum, item) => sum + (Number(item?.total_likes) || 0), 0)
+    : 0
+
+  return {
+    labels: ["조회수", "좋아요"],
+    datasets: [
+      {
+        label: "총 집계",
+        data: [viewsTotal, likesTotal],
+        backgroundColor: ["rgba(122, 162, 255, 0.8)", "rgba(94, 234, 212, 0.8)"],
+        borderRadius: 8
       }
     ]
   }
@@ -150,6 +216,34 @@ const doughnutChartOptions = {
           return `${context.label}: ${context.raw}개`
         }
       }
+    }
+  }
+}
+
+const categoryLineOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      callbacks: {
+        label(context) {
+          return `${context.raw}개`
+        }
+      }
+    }
+  },
+  scales: {
+    x: {
+      ticks: { color: "#CBD5E1" },
+      grid: { display: false }
+    },
+    y: {
+      beginAtZero: true,
+      ticks: { color: "#CBD5E1", precision: 0, stepSize: 1 },
+      grid: { color: "rgba(148, 163, 184, 0.15)" }
     }
   }
 }
@@ -282,37 +376,65 @@ onMounted(() => {
           <article class="chart-card">
             <div class="chart-header">
               <p>REGION POSTS</p>
-
-              <h3>
-                권역별 게시글 현황
-              </h3>
+              <h3>권역별 게시글 현황</h3>
             </div>
-
             <div class="bar-chart">
-              <Bar
-                :data="barChartData"
-                :options="barChartOptions"
-              />
+              <Bar :data="barChartData" :options="barChartOptions" />
             </div>
           </article>
 
           <article class="chart-card">
             <div class="chart-header">
               <p>POPULAR REGION</p>
-
-              <h3>
-                인기 지역 비율
-              </h3>
+              <h3>인기 지역 비율</h3>
             </div>
-
             <div class="doughnut-chart">
-              <Doughnut
-                :data="doughnutChartData"
-                :options="doughnutChartOptions"
-              />
+              <Doughnut :data="doughnutChartData" :options="doughnutChartOptions" />
             </div>
           </article>
         </div>
+
+        <div class="chart-grid second-grid">
+          <article class="chart-card">
+            <div class="chart-header">
+              <p>CATEGORY POSTS</p>
+              <h3>카테고리별 게시글 분포</h3>
+            </div>
+            <div class="bar-chart">
+              <Bar :data="categoryBarChartData" :options="barChartOptions" />
+            </div>
+          </article>
+
+          <article class="chart-card">
+            <div class="chart-header">
+              <p>CATEGORY SHARE</p>
+              <h3>카테고리 비율</h3>
+            </div>
+            <div class="doughnut-chart">
+              <Doughnut :data="categoryDoughnutData" :options="doughnutChartOptions" />
+            </div>
+          </article>
+        </div>
+
+        <article class="chart-card line-card">
+          <div class="chart-header">
+            <p>CATEGORY TREND</p>
+            <h3>카테고리 흐름</h3>
+          </div>
+          <div class="line-chart">
+            <Line :data="categoryLineData" :options="categoryLineOptions" />
+          </div>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-header">
+            <p>INTERACTION STATS</p>
+            <h3>조회수 · 좋아요 집계</h3>
+          </div>
+          <div class="bar-chart">
+            <Bar :data="interactionBarData" :options="barChartOptions" />
+          </div>
+        </article>
 
         <article class="ranking-card">
           <div class="chart-header">
@@ -485,6 +607,10 @@ h2 {
   gap: 20px;
 }
 
+.second-grid {
+  margin-top: 20px;
+}
+
 .chart-card {
   padding: 25px;
 }
@@ -515,6 +641,12 @@ h2 {
 
 .doughnut-chart {
   height: 340px;
+
+  margin-top: 25px;
+}
+
+.line-chart {
+  height: 320px;
 
   margin-top: 25px;
 }

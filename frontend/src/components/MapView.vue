@@ -1,34 +1,24 @@
 <template>
   <div class="map-toolbar">
-  <select v-model="selectedCategory" @change="changeCategory">
-    <option value="tourist">관광지</option>
-    <option value="leports">레포츠</option>
-    <option value="culture">문화시설</option>
-    <option value="shop">쇼핑</option>
-    <option value="lodge">숙박</option>
-    <option value="course">여행코스</option>
-    <option value="festival">축제</option>
-  </select>
+    <select v-model="selectedCategory" @change="changeCategory">
+      <option value="tourist">관광지</option>
+      <option value="leports">레포츠</option>
+      <option value="culture">문화시설</option>
+      <option value="shop">쇼핑</option>
+      <option value="lodge">숙박</option>
+      <option value="course">여행코스</option>
+      <option value="festival">축제</option>
+    </select>
 
-  <input
-    v-model="searchKeyword"
-    class="place-search"
-    placeholder="장소명을 입력하세요"
-    @keyup.enter="searchPlace"
-  />
-  <datalist id="place-list">
-  <option
-    v-for="place in currentPlaces"
-    :key="place.id"
-    :value="place.title"
-  />
-</datalist>
+    <input v-model="searchKeyword" class="place-search" placeholder="장소명을 입력하세요" @keyup.enter="searchPlace" />
+    <datalist id="place-list">
+      <option v-for="place in currentPlaces" :key="place.id" :value="place.title" />
+    </datalist>
 
-  <button class="search-button" @click="searchPlace">
-    🔍
-  </button>
-</div>
-  <div ref="mapRef" class="map"></div>
+    <button class="search-button" @click="searchPlace">🔍</button>
+  </div>
+  <div v-if="mapError" class="map-fallback">{{ mapError }}</div>
+  <div v-else ref="mapRef" class="map"></div>
 </template>
 
 <script setup>
@@ -37,6 +27,7 @@ import { ref, onMounted } from "vue"
 const mapRef = ref(null)
 const selectedCategory = ref("tourist")
 const searchKeyword = ref("")
+const mapError = ref("")
 
 const clusterColors = {
   tourist: {
@@ -134,11 +125,19 @@ function searchPlace() {
 }
 
 async function loadMarkers(category = "tourist") {
+  if (!map) {
+    return
+  }
+
   clearMarkers()
 
   const response = await fetch(
     `http://localhost:8000/api/${category}`
   )
+
+  if (!response.ok) {
+    throw new Error('관광 데이터를 불러오지 못했습니다.')
+  }
 
   const places = await response.json()
   currentPlaces = places
@@ -220,20 +219,25 @@ async function changeCategory() {
 }
 
 onMounted(async () => {
-
-  map = new naver.maps.Map(
-    mapRef.value,
-    {
-      center: new naver.maps.LatLng(
-        37.5665,
-        126.9780
-      ),
-      zoom: 11,
-      zoomControl: true
+  try {
+    if (!window.naver?.maps) {
+      throw new Error('네이버 지도 SDK를 불러오지 못했습니다. 인증 또는 네트워크 상태를 확인해주세요.')
     }
-  )
 
-  await loadMarkers(selectedCategory.value)
+    map = new naver.maps.Map(
+      mapRef.value,
+      {
+        center: new naver.maps.LatLng(37.5665, 126.9780),
+        zoom: 11,
+        zoomControl: true
+      }
+    )
+
+    await loadMarkers(selectedCategory.value)
+  } catch (error) {
+    console.error(error)
+    mapError.value = error.message || '지도를 초기화하지 못했습니다.'
+  }
 })
 </script>
 
@@ -241,101 +245,82 @@ onMounted(async () => {
 .map {
   width: 100%;
   height: 550px;
-
   border-radius: 28px;
-
   overflow: hidden;
-
-  box-shadow:
-      0 0 50px rgba(122,162,255,.15);
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.35);
+  border: 1px solid rgba(255,255,255,0.14);
+  margin-top: 18px;
 }
+
+.map-fallback {
+  margin-top: 18px;
+  padding: 24px;
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.75);
+  color: #f8fafc;
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
 .map-toolbar {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
+select,
 .place-search {
-  width: 250px;
-
-  padding: 10px 16px;
-
-  border: none;
-  border-radius: 12px;
-
-  background: rgba(20,20,30,0.85);
-
-  color: white;
-
+  padding: 10px 14px;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.7);
+  color: #f8fafc;
   outline: none;
-
   backdrop-filter: blur(12px);
 }
 
+.place-search {
+  width: 260px;
+}
+
 .place-search::placeholder {
-  color: #999;
+  color: #94a3b8;
 }
 
 .search-button {
   width: 42px;
   height: 42px;
-
   border: none;
   border-radius: 12px;
-
-  background: rgba(122,162,255,0.8);
-
-  color: white;
-
+  background: linear-gradient(135deg, #ffd369, #f59e0b);
+  color: #111827;
   cursor: pointer;
-
-  transition: .2s;
+  transition: 0.2s;
 }
 
-.search-button:hover {
-  transform: scale(1.05);
-}
+.search-button:hover { transform: scale(1.05); }
 
 :deep(.cluster-marker) {
   width: 64px;
   height: 64px;
-
   border-radius: 50%;
-
   display: flex;
   justify-content: center;
   align-items: center;
-
   color: white;
   font-size: 18px;
   font-weight: 700;
-
   backdrop-filter: blur(12px);
-
   animation: clusterPulse 2.5s infinite ease-in-out;
-
   transition: all .3s ease;
 }
 
-:deep(.cluster-marker:hover) {
-  transform: scale(1.1);
-}
+:deep(.cluster-marker:hover) { transform: scale(1.1); }
+:deep(.cluster-marker span) { pointer-events: none; }
 
-:deep(.cluster-marker span) {
-  pointer-events: none;
-}
-
-@keyframes pulseCluster {
-  0% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.08);
-  }
-
-  100% {
-    transform: scale(1);
-  }
+@keyframes clusterPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
 }
 </style>

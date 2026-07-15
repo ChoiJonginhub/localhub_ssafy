@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useSunsetTheme } from '@/composables/useSunsetTheme.js'
 
 const category = 'seoul'
 const posts = ref([])
@@ -17,6 +18,7 @@ const viewedPostIds = ref([])
 const commentDrafts = ref({})
 const options = ref({ regions: [], categories: [] })
 const showWrite = ref(false)
+const { skyStyle, timeLabel, timeRangeLabel, currentTimeLabel } = useSunsetTheme()
 
 const form = ref({
   title: '',
@@ -139,6 +141,10 @@ function togglePost(post) {
   }
 }
 
+const sortedPosts = computed(() => {
+  return [...posts.value].sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
+})
+
 async function viewPost(postId) {
   try {
     const res = await fetch(`http://localhost:8000/api/boards/${category}/posts/${postId}/view`, { method: 'POST' })
@@ -222,10 +228,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="community">
+  <div class="community" :style="skyStyle">
     <header>
       <h1>Community</h1>
       <p>서울 시민들의 실시간 커뮤니티</p>
+      <div class="theme-pill">
+        <span>현재 {{ currentTimeLabel }}</span>
+        <span>{{ timeLabel }} · {{ timeRangeLabel }}</span>
+      </div>
       <button class="plus" @click="showWrite = true">+</button>
     </header>
 
@@ -270,7 +280,7 @@ onBeforeUnmount(() => {
     <p class="success">{{ successMessage }}</p>
     <div class="notice">{{ notificationMessage }}</div>
 
-    <article v-for="post in posts" :key="post.id" class="post" :class="{ popular: isPopular(post) }">
+    <article v-for="post in sortedPosts" :key="post.id" class="post" :class="{ popular: isPopular(post) }">
       <div class="post-header">
         <div>
           <div class="post-meta">{{ post.region }} · {{ post.category }}</div>
@@ -320,13 +330,13 @@ onBeforeUnmount(() => {
 <style scoped>
 .community {
   min-height: 100vh;
-  padding: 40px;
-  background: linear-gradient(180deg, #050816, #111827);
-  color: white;
+  padding: 120px 24px 60px;
+  transition: background 0.6s ease;
+  color: #f8fafc;
 }
 
 header {
-  margin-bottom: 40px;
+  margin-bottom: 32px;
   text-align: center;
   position: relative;
 }
@@ -336,8 +346,23 @@ header h1 {
   font-weight: 900;
   margin: 0;
   background: linear-gradient(135deg, #fff, #ffd369, #93c5fd);
+  background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
+}
+
+.theme-pill {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 16px;
+  margin: 12px 0 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .plus {
@@ -441,8 +466,9 @@ button.delete {
   margin-top: 20px;
   padding: 20px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(2, 6, 23, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 45px rgba(2, 6, 23, 0.24);
 }
 
 .post.popular {
