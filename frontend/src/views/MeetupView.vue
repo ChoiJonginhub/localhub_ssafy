@@ -8,6 +8,7 @@ const successMessage = ref('')
 const showWrite = ref(false)
 const joinDrafts = ref({})
 const joinedNicknames = ref({})
+const appliedMeetups = ref([])
 const form = ref({
   title: '',
   host_nickname: '',
@@ -145,6 +146,7 @@ async function joinMeetup(meetup) {
     errorMessage.value = ''
     joinedNicknames.value = { ...joinedNicknames.value, [meetup.id]: nickname }
     joinDrafts.value = { ...joinDrafts.value, [meetup.id]: '' }
+    appliedMeetups.value = Array.from(new Set([...appliedMeetups.value, meetup.id]))
     await fetchMeetups()
   } catch (err) {
     errorMessage.value = err.message
@@ -208,6 +210,14 @@ function renderMarkers() {
   } else {
     map.setCenter(userPosition)
     map.setZoom(12)
+  }
+}
+
+function updateSelectedMeetupById(id) {
+  selectedMeetupId.value = id
+  const target = meetups.value.find((meetup) => meetup.id === id)
+  if (target) {
+    renderMarkers()
   }
 }
 
@@ -335,10 +345,10 @@ onMounted(async () => {
             </div>
 
             <div class="join-box">
-              <input v-model="joinDrafts[meetup.id]" placeholder="참가자 닉네임" />
+              <input v-model="joinDrafts[meetup.id]" :placeholder="joinedNicknames[meetup.id] ? `현재 닉네임: ${joinedNicknames[meetup.id]}` : '참가자 닉네임'" />
               <button @click="joinMeetup(meetup)">모임 참가</button>
             </div>
-
+            <p v-if="joinedNicknames[meetup.id]" class="chat-help">현재 닉네임: {{ joinedNicknames[meetup.id] }}</p>
             <div class="chat-box">
               <div class="chat-title">모임 채팅</div>
               <div class="chat-list">
@@ -364,6 +374,23 @@ onMounted(async () => {
       <div class="card">
         <div class="card-title">모임 위치 / 내 위치</div>
         <div class="map-preview" ref="mainMapRef"></div>
+
+        <div class="application-card">
+          <div class="card-title small">신청 현황</div>
+          <div v-if="appliedMeetups.length === 0" class="chat-empty">아직 지원한 모임이 없습니다.</div>
+          <ul v-else class="application-list">
+            <li v-for="meetupId in appliedMeetups" :key="meetupId">
+              <button class="application-btn" @click="updateSelectedMeetupById(meetupId)">
+                <span class="application-title">{{ meetups.find((item) => item.id === meetupId)?.title || '모임' }}</span>
+                <span class="application-meta">
+                  {{ meetups.find((item) => item.id === meetupId)?.current_participants || 0 }}/{{ meetups.find((item) => item.id === meetupId)?.recruitment_count || 0 }}명 ·
+                  {{ meetups.find((item) => item.id === meetupId)?.location || '위치 미정' }} ·
+                  {{ meetups.find((item) => item.id === meetupId)?.recruitment_period || '기간 미정' }}
+                </span>
+              </button>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   </section>
@@ -419,6 +446,11 @@ onMounted(async () => {
 .chat-inputs { display: flex; gap: 8px; }
 .chat-inputs input { flex: 1; padding: 9px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: white; }
 .chat-inputs button { padding: 0 12px; border-radius: 10px; }
+.application-card { margin-top: 16px; padding: 12px; border-radius: 14px; background: rgba(15,23,42,.55); border: 1px solid rgba(255,255,255,.08); }
+.application-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.application-btn { width: 100%; text-align: left; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.05); color: white; border: 1px solid rgba(255,255,255,.08); display: flex; flex-direction: column; gap: 4px; }
+.application-title { font-weight: 700; }
+.application-meta { font-size: 12px; color: #cbd5e1; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex; justify-content: center; align-items: center; z-index: 1000; }
 .modal-card { width: min(620px, 92vw); background: rgba(15,23,42,.98); border-radius: 24px; padding: 24px; }
 .modal-card input, .modal-card textarea { width: 100%; margin-bottom: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: white; }
