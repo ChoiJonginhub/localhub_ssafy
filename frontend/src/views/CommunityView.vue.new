@@ -1,0 +1,445 @@
+<script setup>
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+
+const boardCategory = 'seoul'
+const categoryOptions = ['맛집', '카페', '관광', '숙소', '교통', '행사', '쇼핑', '사진명소']
+const regionOptions = ['강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구', '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구', '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구']
+
+const posts = ref([])
+const loading = ref(false)
+const errorMessage = ref('')
+const successMessage = ref('')
+const notificationMessage = ref('')
+const showWrite = ref(false)
+const editingId = ref(null)
+const deletePasswords = ref({})
+const onlineCount = ref(0)
+const socket = ref(null)
+const reconnectTimer = ref(null)
+const selectedPostId = ref(null)
+const selectedPost = computed(() => posts.value.find((post) => post.id === selectedPostId.value) || null)
+
+const form = ref({
+  title: '',
+  content: '',
+  password: '',
+  region: '강남구',
+  category: '맛집'
+})
+
+function resetForm() {
+  editingId.value = null
+  selectedPostId.value = null
+  form.value = {
+    title: '',
+    content: '',
+    password: '',
+    region: '강남구',
+    category: '맛집'
+  }
+}
+
+function openWrite() {
+  showWrite.value = true
+  resetForm()
+}
+
+function startEdit(post) {
+  showWrite.value = true
+  editingId.value = post.id
+  form.value = {
+    title: post.title,
+    content: post.content,
+    password: '',
+    region: post.region,
+    category: post.category
+  }
+}
+
+async function fetchPosts() {
+  try {
+    loading.value = true
+    const res = await fetch(`http://localhost:8000/api/boards/${boardCategory}/posts`)
+    posts.value = await res.json()
+  } catch (err) {
+    errorMessage.value = err.message
+  } finally {
+    loading.value = false
+  }
+}
+
+function selectPost(post) {
+  selectedPostId.value = post.id
+}
+
+async function viewPost(post) {
+  try {
+    const res = await fetch(`http://localhost:8000/api/boards/${boardCategory}/posts/${post.id}/view`, { method: 'POST' })
+    if (!res.ok) {
+      throw new Error('조회수 업데이트 실패')
+    }
+    const refreshed = await res.json()
+    const index = posts.value.findIndex((item) => item.id === post.id)
+    if (index >= 0) {
+      posts.value[index] = refreshed
+    }
+    selectedPostId.value = refreshed.id
+  } catch (err) {
+    errorMessage.value = err.message
+  }
+}
+
+async function likePost(post) {
+  try {
+    const res = await fetch(`http://localhost:8000/api/boards/${boardCategory}/posts/${post.id}/like`, { method: 'POST' })
+    if (!res.ok) {
+      throw new Error('좋아요 처리 실패')
+    }
+    const refreshed = await res.json()
+    const index = posts.value.findIndex((item) => item.id === post.id)
+    if (index >= 0) {
+      posts.value[index] = refreshed
+    }
+  } catch (err) {
+    errorMessage.value = err.message
+  }
+}
+
+async function submitComment(post, content) {
+  if (!content) {
+    errorMessage.value = '댓글 내용을 입력해주세요.'
+    return
+  }
+  try {
+    const res = await fetch(`http://localhost:8000/api/boards/${boardCategory}/posts/${post.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    })
+    if (!res.ok) {
+      throw new Error('댓글 등록 실패')
+    }
+    const comment = await res.json()
+    const index = posts.value.findIndex((item) => item.id === post.id)
+    if (index >= 0) {
+      posts.value[index].comments = [...(posts.value[index].comments || []), comment]
+      if (posts.value[index].id === selectedPostId.value) {
+        selectedPostId.value = null
+        selectedPostId.value = posts.value[index].id
+      }
+    }
+    successMessage.value = '댓글이 등록되었습니다.'
+  } catch (err) {
+    errorMessage.value = err.message
+  }
+}
+
+async function submitForm() {
+  if (!form.value.title || !form.value.content || !form.value.password) {
+    errorMessage.value = '제목, 내용, 비밀번호를 입력해주세요.'
+    return
+  }
+
+  const url = `http://localhost:8000/api/boards/${boardCategory}/posts${editingId.value ? `/${editingId.value}` : ''}`
+  const method = editingId.value ? 'PUT' : 'POST'
+
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form.value)
+    })
+    if (!res.ok) {
+      throw new Error('처리 실패')
+    }
+    successMessage.value = editingId.value ? '게시글 수정 완료' : '게시글 등록 완료'
+    resetForm()
+    showWrite.value = false
+    fetchPosts()
+  } catch (err) {
+    errorMessage.value = err.message
+  }
+}
+
+async function deletePost(id) {
+  const password = deletePasswords.value[id]
+  if (!password) {
+    errorMessage.value = '삭제 비밀번호 입력'
+    return
+  }
+
+  try {
+    const res = await fetch(`http://localhost:8000/api/boards/${boardCategory}/posts/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    })
+    if (!res.ok) {
+      throw new Error('삭제 실패')
+    }
+    fetchPosts()
+  } catch (err) {
+    errorMessage.value = err.message
+  }
+}
+
+function connectSocket() {
+  socket.value = new WebSocket(`ws://localhost:8000/ws/notifications?client_id=${Date.now()}`)
+  socket.value.onmessage = (e) => {
+    const data = JSON.parse(e.data)
+    if (data.type === 'presence') {
+      onlineCount.value = data.count
+    }
+    if (data.type === 'new_post') {
+      posts.value.unshift(data.post)
+      notificationMessage.value = '새 게시글이 등록되었습니다.'
+    }
+  }
+  socket.value.onclose = () => {
+    reconnectTimer.value = setTimeout(connectSocket, 1000)
+  }
+}
+
+onMounted(() => {
+  fetchPosts()
+  connectSocket()
+})
+
+onBeforeUnmount(() => {
+  if (socket.value) {
+    socket.value.close()
+  }
+  if (reconnectTimer.value) {
+    clearTimeout(reconnectTimer.value)
+  }
+})
+</script>
+
+<template>
+  <div class="community">
+    <header>
+      <h1>Community</h1>
+      <p>서울 시민들의 실시간 커뮤니티</p>
+      <button class="plus" @click="openWrite">+</button>
+    </header>
+
+    <div v-if="showWrite" class="modal">
+      <div class="modal-card">
+        <button class="close-btn" @click="showWrite = false">✕</button>
+        <h2>{{ editingId ? '게시글 수정' : '게시글 작성' }}</h2>
+
+        <input v-model="form.title" placeholder="제목" />
+        <textarea v-model="form.content" rows="8" placeholder="내용" />
+
+        <div class="select-row">
+          <select v-model="form.region">
+            <option v-for="region in regionOptions" :key="region" :value="region">{{ region }}</option>
+          </select>
+          <select v-model="form.category">
+            <option v-for="category in categoryOptions" :key="category" :value="category">{{ category }}</option>
+          </select>
+        </div>
+
+        <input v-model="form.password" type="password" placeholder="수정 / 삭제 비밀번호" />
+
+        <div class="modal-buttons">
+          <button class="cancel" @click="showWrite = false">취소</button>
+          <button class="submit" @click="submitForm">{{ editingId ? '수정하기' : '등록하기' }}</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status">현재 접속자 <b>{{ onlineCount }}</b> 명</div>
+
+    <p v-if="loading">불러오는 중...</p>
+    <p class="error">{{ errorMessage }}</p>
+    <p class="success">{{ successMessage }}</p>
+    <div class="notice">{{ notificationMessage }}</div>
+
+    <div class="posts-layout">
+      <section class="post-list">
+        <article v-for="post in posts" :key="post.id" class="post">
+          <div class="post-top">
+            <div>
+              <span class="badge">{{ post.category }}</span>
+              <span class="badge secondary">{{ post.region }}</span>
+            </div>
+            <span class="post-time">{{ new Date(post.created_at).toLocaleString() }}</span>
+          </div>
+
+          <h2>{{ post.title }}</h2>
+          <p class="summary">{{ post.content }}</p>
+
+          <div class="meta">
+            <button class="icon-btn" @click="likePost(post)">👍 {{ post.likes_count || 0 }}</button>
+            <span>👁 {{ post.views_count || 0 }}</span>
+            <span>💬 {{ (post.comments || []).length }}</span>
+          </div>
+
+          <div class="buttons">
+            <button @click="() => { selectPost(post); viewPost(post) }">보기</button>
+            <button @click="startEdit(post)">수정</button>
+            <input v-model="deletePasswords[post.id]" type="password" placeholder="삭제 비밀번호" />
+            <button class="delete" @click="deletePost(post.id)">삭제</button>
+          </div>
+        </article>
+      </section>
+
+      <aside v-if="selectedPost" class="detail-panel">
+        <h3>{{ selectedPost.title }}</h3>
+        <p class="detail-content">{{ selectedPost.content }}</p>
+        <div class="detail-meta">
+          <span>지역: {{ selectedPost.region }}</span>
+          <span>카테고리: {{ selectedPost.category }}</span>
+        </div>
+        <div class="detail-actions">
+          <button class="icon-btn" @click="likePost(selectedPost)">👍 {{ selectedPost.likes_count || 0 }}</button>
+          <span>👁 {{ selectedPost.views_count || 0 }}</span>
+        </div>
+
+        <div class="comment-box">
+          <h4>댓글</h4>
+          <textarea v-model="selectedPost.commentDraft" rows="3" placeholder="댓글을 입력하세요" />
+          <button class="submit" @click="submitComment(selectedPost, selectedPost.commentDraft)">댓글 등록</button>
+          <ul v-if="selectedPost.comments?.length">
+            <li v-for="comment in selectedPost.comments" :key="comment.id">{{ comment.content }}</li>
+          </ul>
+          <p v-else>아직 댓글이 없습니다.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.community {
+  min-height: 100vh;
+  padding: 40px;
+  background: linear-gradient(180deg, #050816, #111827);
+  color: white;
+}
+
+header {
+  margin-bottom: 40px;
+  text-align: center;
+  position: relative;
+}
+
+header h1 {
+  font-size: 64px;
+  font-weight: 900;
+  margin: 0;
+  background: linear-gradient(135deg, #fff, #ffd369, #93c5fd);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.plus {
+  position: fixed;
+  right: 40px;
+  bottom: 40px;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  font-size: 34px;
+  background: linear-gradient(135deg, #ffd369, #ff8a00);
+  box-shadow: 0 20px 40px rgba(255, 180, 0, .35);
+  z-index: 100;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .45);
+  backdrop-filter: blur(12px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-card {
+  width: 700px;
+  max-width: 92%;
+  padding: 40px;
+  border-radius: 35px;
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .12);
+  backdrop-filter: blur(35px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .45);
+  position: relative;
+}
+
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .08);
+  color: white;
+  font-size: 18px;
+}
+
+.modal-card h2 { margin-bottom: 20px; font-size: 28px; }
+
+.modal-card input, .modal-card textarea, .modal-card select, select, textarea, input {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .12);
+  color: white;
+  font-size: 15px;
+}
+
+.select-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.modal-buttons { display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; }
+.cancel { background: rgba(255, 255, 255, .08); color: white; }
+.submit { background: linear-gradient(135deg, #7c4dff, #ec4899); color: white; }
+
+button {
+  border: none;
+  padding: 12px 18px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffd369, #ffb347);
+  transition: .3s;
+}
+
+button:hover { transform: translateY(-2px); }
+
+.posts-layout { display: grid; grid-template-columns: 1.2fr .8fr; gap: 24px; }
+.post-list { display: flex; flex-direction: column; gap: 16px; }
+.post { padding: 22px; border-radius: 24px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .1); }
+.badge { display: inline-block; padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, .16); margin-right: 8px; font-size: 12px; }
+.badge.secondary { background: rgba(124, 77, 255, .25); }
+.post-time { color: #cbd5e1; font-size: 12px; }
+.summary { color: #e2e8f0; line-height: 1.7; }
+.meta, .detail-actions { display: flex; gap: 10px; align-items: center; margin: 12px 0; color: #f8fafc; }
+.icon-btn { padding: 8px 12px; }
+.buttons { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.delete { background: #ef4444; color: white; }
+.detail-panel { padding: 24px; border-radius: 24px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .1); height: fit-content; }
+.detail-content { color: #f8fafc; line-height: 1.8; }
+.detail-meta { display: flex; flex-direction: column; gap: 6px; color: #cbd5e1; margin: 12px 0; }
+.comment-box { margin-top: 16px; }
+.comment-box ul { padding-left: 18px; color: #e2e8f0; }
+.status { display: inline-block; padding: 12px 18px; border-radius: 999px; background: rgba(255,255,255,.08); margin: 20px 0; }
+.error { color: #fb7185; }
+.success { color: #4ade80; }
+.notice { color: #fcd34d; }
+
+@media (max-width: 900px) {
+  .posts-layout { grid-template-columns: 1fr; }
+  .select-row { grid-template-columns: 1fr; }
+}
+</style>

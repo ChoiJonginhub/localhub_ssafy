@@ -38,126 +38,95 @@ const statistics = ref({
   categories: [],
   popular_categories: [],
   views: [],
-  likes: []
+  likes: [],
+  category_daily_views: [],
+  weekly_posts: [],
+  hourly_posts: [],
+  top_posts: []
 })
 
-const barChartData = computed(() => {
-  return {
-    labels: statistics.value.regions.map(item => item.region),
+const barChartData = computed(() => ({
+  labels: statistics.value.regions.map(item => item.region),
+  datasets: [
+    {
+      label: "게시글 수",
+      data: statistics.value.regions.map(item => item.post_count),
+      backgroundColor: "rgba(122, 162, 255, 0.75)",
+      borderColor: "#7AA2FF",
+      borderWidth: 1,
+      borderRadius: 8,
+      borderSkipped: false
+    }
+  ]
+}))
 
+const doughnutChartData = computed(() => ({
+  labels: statistics.value.popular_regions.map(item => item.region),
+  datasets: [
+    {
+      label: "게시글 수",
+      data: statistics.value.popular_regions.map(item => item.post_count),
+      backgroundColor: ["#7AA2FF", "#5EEAD4", "#C084FC", "#FFD369", "#FF7A7A"],
+      borderWidth: 0,
+      hoverOffset: 10
+    }
+  ]
+}))
+
+const categoryDistributionData = computed(() => ({
+  labels: statistics.value.categories.map(item => item.category),
+  datasets: [
+    {
+      label: "카테고리 게시글 수",
+      data: statistics.value.categories.map(item => item.post_count),
+      backgroundColor: ["#7AA2FF", "#5EEAD4", "#C084FC", "#FFD369", "#FF7A7A", "#F59E0B", "#FB923C", "#A78BFA"],
+      borderWidth: 0,
+      hoverOffset: 10
+    }
+  ]
+}))
+
+const weeklyPostBarData = computed(() => {
+  const labels = statistics.value.weekly_posts.map(item => item.date.slice(5))
+  return {
+    labels,
     datasets: [
       {
-        label: "게시글 수",
-        data: statistics.value.regions.map(
-          item => item.post_count
-        ),
-
-        backgroundColor: "rgba(122, 162, 255, 0.75)",
+        label: "최근 7일 게시글",
+        data: statistics.value.weekly_posts.map(item => item.post_count),
+        backgroundColor: "rgba(122, 162, 255, 0.8)",
         borderColor: "#7AA2FF",
         borderWidth: 1,
-        borderRadius: 8,
+        borderRadius: 6,
         borderSkipped: false
       }
     ]
   }
 })
 
-const doughnutChartData = computed(() => {
-  return {
-    labels: statistics.value.popular_regions.map(item => item.region),
-    datasets: [
-      {
-        label: "게시글 수",
-        data: statistics.value.popular_regions.map(item => item.post_count),
-        backgroundColor: ["#7AA2FF", "#5EEAD4", "#C084FC", "#FFD369", "#FF7A7A"],
-        borderWidth: 0,
-        hoverOffset: 10
-      }
-    ]
-  }
-})
-
-const categoryBarChartData = computed(() => {
-  return {
-    labels: statistics.value.categories.map(item => item.category),
-    datasets: [
-      {
-        label: "카테고리 게시글 수",
-        data: statistics.value.categories.map(item => item.post_count),
-        backgroundColor: "rgba(94, 234, 212, 0.75)",
-        borderColor: "#5EEAD4",
-        borderWidth: 1,
-        borderRadius: 8,
-        borderSkipped: false
-      }
-    ]
-  }
-})
-
-const categoryDoughnutData = computed(() => {
-  return {
-    labels: statistics.value.popular_categories.map(item => item.category),
-    datasets: [
-      {
-        label: "카테고리 분포",
-        data: statistics.value.popular_categories.map(item => item.post_count),
-        backgroundColor: ["#5EEAD4", "#C084FC", "#FFD369", "#7AA2FF", "#FF7A7A"],
-        borderWidth: 0,
-        hoverOffset: 10
-      }
-    ]
-  }
-})
-
-const categoryLineData = computed(() => {
-  return {
-    labels: statistics.value.categories.map(item => item.category),
-    datasets: [
-      {
-        label: "카테고리 추세",
-        data: statistics.value.categories.map(item => item.post_count),
-        borderColor: "#FFD369",
-        backgroundColor: "rgba(255, 211, 105, 0.2)",
-        fill: true,
-        tension: 0.35,
-        pointBackgroundColor: "#FFD369",
-        pointBorderColor: "#fff"
-      }
-    ]
-  }
-})
-
-const interactionBarData = computed(() => {
-  const viewsTotal = Array.isArray(statistics.value.views)
-    ? statistics.value.views.reduce((sum, item) => sum + (Number(item?.total_views) || 0), 0)
-    : 0
-
-  const likesTotal = Array.isArray(statistics.value.likes)
-    ? statistics.value.likes.reduce((sum, item) => sum + (Number(item?.total_likes) || 0), 0)
-    : 0
-
-  return {
-    labels: ["조회수", "좋아요"],
-    datasets: [
-      {
-        label: "총 집계",
-        data: [viewsTotal, likesTotal],
-        backgroundColor: ["rgba(122, 162, 255, 0.8)", "rgba(94, 234, 212, 0.8)"],
-        borderRadius: 8
-      }
-    ]
-  }
-})
+const hourlyPostLineData = computed(() => ({
+  labels: statistics.value.hourly_posts.map(item => `${item.hour}시`),
+  datasets: [
+    {
+      label: "시간대별 방문객 추이",
+      data: statistics.value.hourly_posts.map(item => item.visitor_count),
+      borderColor: "#5EEAD4",
+      backgroundColor: "rgba(94, 234, 212, 0.18)",
+      fill: true,
+      tension: 0.3,
+      pointBackgroundColor: "#5EEAD4",
+      pointBorderColor: "#fff"
+    }
+  ]
+}))
 
 const barChartOptions = {
   responsive: true,
   maintainAspectRatio: false,
-
   plugins: {
     legend: {
       display: false
     },
-
     tooltip: {
       callbacks: {
         label(context) {
@@ -166,30 +135,15 @@ const barChartOptions = {
       }
     }
   },
-
   scales: {
     x: {
-      ticks: {
-        color: "#CBD5E1"
-      },
-
-      grid: {
-        display: false
-      }
+      ticks: { color: "#CBD5E1" },
+      grid: { display: false }
     },
-
     y: {
       beginAtZero: true,
-
-      ticks: {
-        color: "#CBD5E1",
-        precision: 0,
-        stepSize: 1
-      },
-
-      grid: {
-        color: "rgba(148, 163, 184, 0.15)"
-      }
+      ticks: { color: "#CBD5E1", precision: 0, stepSize: 1 },
+      grid: { color: "rgba(148, 163, 184, 0.15)" }
     }
   }
 }
@@ -198,18 +152,15 @@ const doughnutChartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   cutout: "65%",
-
   plugins: {
     legend: {
       position: "bottom",
-
       labels: {
         color: "#CBD5E1",
         padding: 20,
         usePointStyle: true
       }
     },
-
     tooltip: {
       callbacks: {
         label(context) {
@@ -220,13 +171,38 @@ const doughnutChartOptions = {
   }
 }
 
-const categoryLineOptions = {
+const weeklyBarOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  indexAxis: "y",
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        label(context) {
+          return `${context.raw}개`
+        }
+      }
+    }
+  },
+  scales: {
+    x: {
+      beginAtZero: true,
+      ticks: { color: "#CBD5E1", precision: 0, stepSize: 1 },
+      grid: { color: "rgba(148, 163, 184, 0.15)" }
+    },
+    y: {
+      ticks: { color: "#CBD5E1" },
+      grid: { display: false }
+    }
+  }
+}
+
+const lineChartOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: {
-      display: false
-    },
+    legend: { display: false },
     tooltip: {
       callbacks: {
         label(context) {
@@ -253,22 +229,16 @@ async function loadStatistics() {
   errorMessage.value = ""
 
   try {
-    const response = await fetch(
-      "http://localhost:8000/api/statistics/regions"
-    )
+    const response = await fetch("http://localhost:8000/api/statistics/regions")
 
     if (!response.ok) {
-      throw new Error(
-        `통계 데이터 요청 실패: ${response.status}`
-      )
+      throw new Error(`통계 데이터 요청 실패: ${response.status}`)
     }
 
     statistics.value = await response.json()
   } catch (error) {
     console.error(error)
-
-    errorMessage.value =
-      "통계 데이터를 불러오지 못했습니다."
+    errorMessage.value = "통계 데이터를 불러오지 못했습니다."
   } finally {
     loading.value = false
   }
@@ -385,11 +355,11 @@ onMounted(() => {
 
           <article class="chart-card">
             <div class="chart-header">
-              <p>POPULAR REGION</p>
-              <h3>인기 지역 비율</h3>
+              <p>CATEGORY DISTRIBUTION</p>
+              <h3>카테고리 분포</h3>
             </div>
             <div class="doughnut-chart">
-              <Doughnut :data="doughnutChartData" :options="doughnutChartOptions" />
+              <Doughnut :data="categoryDistributionData" :options="doughnutChartOptions" />
             </div>
           </article>
         </div>
@@ -397,75 +367,52 @@ onMounted(() => {
         <div class="chart-grid second-grid">
           <article class="chart-card">
             <div class="chart-header">
-              <p>CATEGORY POSTS</p>
-              <h3>카테고리별 게시글 분포</h3>
+              <p>WEEKLY POSTS</p>
+              <h3>최근 7일 게시글 추이</h3>
             </div>
-            <div class="bar-chart">
-              <Bar :data="categoryBarChartData" :options="barChartOptions" />
+            <div class="bar-chart horizontal-bar-chart">
+              <Bar :data="weeklyPostBarData" :options="weeklyBarOptions" />
             </div>
           </article>
 
-          <article class="chart-card">
+          <article class="ranking-card">
             <div class="chart-header">
-              <p>CATEGORY SHARE</p>
-              <h3>카테고리 비율</h3>
+              <p>TOP POSTS</p>
+              <h3>인기 게시글 TOP 5</h3>
             </div>
-            <div class="doughnut-chart">
-              <Doughnut :data="categoryDoughnutData" :options="doughnutChartOptions" />
+
+            <div class="ranking-list">
+              <div
+                v-for="(item, index) in statistics.top_posts"
+                :key="item.id"
+                class="ranking-item"
+              >
+                <div class="ranking-left">
+                  <span class="ranking-number">
+                    {{ index + 1 }}
+                  </span>
+
+                  <div class="ranking-text">
+                    <strong>{{ item.title }}</strong>
+                    <span>{{ item.writer }} · {{ item.category }} · {{ item.region }}</span>
+                  </div>
+                </div>
+
+                <span class="ranking-count">
+                  조회 {{ item.views }} · 좋아요 {{ item.likes }}
+                </span>
+              </div>
             </div>
           </article>
         </div>
 
         <article class="chart-card line-card">
           <div class="chart-header">
-            <p>CATEGORY TREND</p>
-            <h3>카테고리 흐름</h3>
+            <p>VISITOR TREND</p>
+            <h3>시간대별 방문객 추이</h3>
           </div>
           <div class="line-chart">
-            <Line :data="categoryLineData" :options="categoryLineOptions" />
-          </div>
-        </article>
-
-        <article class="chart-card">
-          <div class="chart-header">
-            <p>INTERACTION STATS</p>
-            <h3>조회수 · 좋아요 집계</h3>
-          </div>
-          <div class="bar-chart">
-            <Bar :data="interactionBarData" :options="barChartOptions" />
-          </div>
-        </article>
-
-        <article class="ranking-card">
-          <div class="chart-header">
-            <p>TOP REGIONS</p>
-
-            <h3>
-              인기 지역 순위
-            </h3>
-          </div>
-
-          <div class="ranking-list">
-            <div
-              v-for="(item, index)
-                in statistics.popular_regions"
-              :key="item.region"
-              class="ranking-item"
-            >
-              <div class="ranking-left">
-                <span class="ranking-number">
-                  {{ index + 1 }}
-                </span>
-
-                <strong>
-                  {{ item.region }}
-                </strong>
-              </div>
-
-              <span class="ranking-count">
-                {{ item.post_count }}개
-              </span>
-            </div>
+            <Line :data="hourlyPostLineData" :options="lineChartOptions" />
           </div>
         </article>
       </template>
@@ -651,6 +598,10 @@ h2 {
   margin-top: 25px;
 }
 
+.horizontal-bar-chart {
+  height: 280px;
+}
+
 .ranking-card {
   margin-top: 20px;
 
@@ -726,6 +677,48 @@ h2 {
   color: #ff7a7a;
 }
 
+.category-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.category-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(30, 41, 59, 0.7);
+}
+
+.category-name {
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.category-count {
+  color: #7aa2ff;
+  font-weight: 700;
+}
+
+.ranking-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ranking-text span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.ranking-count {
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: right;
+}
+
 @media (max-width: 900px) {
   .summary-grid,
   .chart-grid {
@@ -735,6 +728,16 @@ h2 {
   .dashboard-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .ranking-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .ranking-count {
+    text-align: left;
   }
 
   h2 {

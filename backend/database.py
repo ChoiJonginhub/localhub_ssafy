@@ -22,6 +22,7 @@ class Post(Base):
     password = Column(String(100), nullable=False)
     like_count = Column(Integer, nullable=False, default=0)
     view_count = Column(Integer, nullable=False, default=0)
+    visitor_count = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     comments = relationship(
@@ -73,6 +74,8 @@ def ensure_schema() -> None:
             connection.execute(text("ALTER TABLE posts ADD COLUMN like_count INTEGER DEFAULT 0"))
         if "view_count" not in posts_columns:
             connection.execute(text("ALTER TABLE posts ADD COLUMN view_count INTEGER DEFAULT 0"))
+        if "visitor_count" not in posts_columns:
+            connection.execute(text("ALTER TABLE posts ADD COLUMN visitor_count INTEGER DEFAULT 0"))
 
     if "comments" not in tables:
         Base.metadata.create_all(bind=engine)

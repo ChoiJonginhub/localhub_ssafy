@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -69,6 +69,7 @@ class PostCreate(BaseModel):
     password: str = Field(min_length=1, max_length=100)
     region: str = Field(default="기타")
     category: str = Field(default="기타")
+    visitor_count: int = Field(default=0, ge=0)
 
 
 class PostUpdate(BaseModel):
@@ -77,6 +78,7 @@ class PostUpdate(BaseModel):
     password: str = Field(min_length=1, max_length=100)
     region: str = Field(default="기타")
     category: str = Field(default="기타")
+    visitor_count: int = Field(default=0, ge=0)
 
 
 class PostDelete(BaseModel):
@@ -101,6 +103,7 @@ class PostResponse(BaseModel):
     region: str
     like_count: int
     view_count: int
+    visitor_count: int
     comments: List[CommentResponse]
     created_at: datetime
     updated_at: datetime
@@ -191,6 +194,7 @@ def serialize_post(post: Post) -> dict:
         "region": post.region,
         "like_count": post.like_count,
         "view_count": post.view_count,
+        "visitor_count": post.visitor_count,
         "comments": [
             {
                 "id": comment.id,
@@ -229,6 +233,7 @@ async def create_post(category: str, payload: PostCreate, db=Depends(get_db)):
         title=payload.title,
         content=payload.content,
         password=payload.password,
+        visitor_count=payload.visitor_count,
     )
     db.add(post)
     db.commit()
@@ -259,6 +264,7 @@ def update_post(category: str, post_id: int, payload: PostUpdate, db=Depends(get
     post.category = payload.category
     post.title = payload.title
     post.content = payload.content
+    post.visitor_count = payload.visitor_count
     post.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(post)
@@ -324,6 +330,7 @@ def get_region_statistics(db=Depends(get_db)):
     )
     category_rows = (
         db.query(Post.category.label("category"), func.count(Post.id).label("post_count"))
+        .filter(Post.category != "seoul")
         .group_by(Post.category)
         .all()
     )
@@ -344,6 +351,58 @@ def get_region_statistics(db=Depends(get_db)):
         .all()
     )
 
+    daily_views_rows = (
+        db.query(
+            func.strftime('%Y-%m-%d', Post.created_at).label('date'),
+            Post.category.label('category'),
+            func.sum(Post.view_count).label('total_views'),
+        )
+        .filter(Post.category != 'seoul')
+        .group_by(func.strftime('%Y-%m-%d', Post.created_at), Post.category)
+        .order_by('date', 'category')
+        .all()
+    )
+
+    weekly_posts_rows = (
+        db.query(
+            func.strftime('%Y-%m-%d', Post.created_at).label('date'),
+            func.count(Post.id).label('post_count'),
+        )
+        .filter(Post.created_at >= datetime.utcnow() - timedelta(days=6))
+        .group_by(func.strftime('%Y-%m-%d', Post.created_at))
+        .order_by('date')
+        .all()
+    )
+
+    hourly_posts_rows = (
+        db.query(
+            func.strftime('%H', Post.created_at).label('hour'),
+            func.count(Post.id).label('post_count'),
+        )
+        .group_by(func.strftime('%H', Post.created_at))
+        .order_by('hour')
+        .all()
+    )
+
+    recent_posts = (
+        db.query(Post)
+        .order_by(Post.view_count.desc(), Post.like_count.desc(), Post.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    top_posts = []
+    for post in recent_posts:
+        top_posts.append({
+            "id": post.id,
+            "title": post.title,
+            "category": post.category,
+            "region": post.region,
+            "writer": "익명",
+            "views": post.view_count,
+            "likes": post.like_count,
+        })
+
     return {
         "total_posts": db.query(Post).count(),
         "region_count": len(regions),
@@ -357,6 +416,16 @@ def get_region_statistics(db=Depends(get_db)):
         "likes": [
             {"region": row.region, "total_likes": int(row.total_likes or 0)} for row in likes_rows
         ],
+        "category_daily_views": [
+            {"date": row.date, "category": row.category, "total_views": int(row.total_views or 0)} for row in daily_views_rows
+        ],
+        "weekly_posts": [
+            {"date": row.date, "post_count": int(row.post_count or 0)} for row in weekly_posts_rows
+        ],
+        "hourly_posts": [
+            {"hour": row.hour, "visitor_count": int(row.post_count or 0)} for row in hourly_posts_rows
+        ],
+        "top_posts": top_posts,
     }
 
 

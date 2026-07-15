@@ -21,6 +21,7 @@ class CommunityPostFeatureTests(unittest.TestCase):
                 'password': '1234',
                 'region': '강남구',
                 'category': '맛집',
+                'visitor_count': 120,
             },
         )
 
@@ -30,6 +31,7 @@ class CommunityPostFeatureTests(unittest.TestCase):
         self.assertEqual(payload['category'], '맛집')
         self.assertEqual(payload['like_count'], 0)
         self.assertEqual(payload['view_count'], 0)
+        self.assertEqual(payload['visitor_count'], 120)
         self.assertEqual(payload['comments'], [])
 
     def test_like_view_and_comment_endpoints_update_post(self):
@@ -72,6 +74,47 @@ class DummyWebSocket:
     async def send_json(self, payload):
         self.sent_messages.append(payload)
         json.dumps(payload)
+
+
+class CommunityStatisticsTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_statistics_endpoint_filters_seoul_from_categories_and_exposes_top_posts(self):
+        self.client.post(
+            '/api/boards/seoul/posts',
+            json={
+                'title': '서울 카테고리 게시글',
+                'content': '서울 카테고리',
+                'password': '1111',
+                'region': '강남구',
+                'category': 'seoul',
+            },
+        )
+        self.client.post(
+            '/api/boards/seoul/posts',
+            json={
+                'title': '맛집 인기 게시글',
+                'content': '맛집 게시글',
+                'password': '2222',
+                'region': '마포구',
+                'category': '맛집',
+            },
+        )
+
+        response = self.client.get('/api/statistics/regions')
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+
+        category_names = [item['category'] for item in payload['categories']]
+        self.assertNotIn('seoul', category_names)
+        self.assertFalse(any(item['category'] == 'seoul' for item in payload['category_daily_views']))
+        self.assertTrue(payload['top_posts'])
+        self.assertEqual(payload['top_posts'][0]['writer'], '익명')
+        self.assertTrue(payload['category_daily_views'])
+        self.assertTrue(payload['weekly_posts'])
+        self.assertTrue(payload['hourly_posts'])
 
 
 class CommunityRealtimeTests(unittest.TestCase):
