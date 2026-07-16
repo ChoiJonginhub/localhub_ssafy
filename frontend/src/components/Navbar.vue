@@ -6,7 +6,7 @@
 
 <div class="logo">
 
-🌆 Seoul AI
+🌆 Seoul Connect
 
 </div>
 

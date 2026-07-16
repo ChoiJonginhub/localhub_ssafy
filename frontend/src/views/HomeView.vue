@@ -38,7 +38,7 @@ class="home"
 
 <h1>
 
-Seoul AI
+Seoul Connect
 
 </h1>
 
@@ -46,7 +46,7 @@ Seoul AI
 
 <h2>
 
-미래 도시 데이터 플랫폼
+서울 관광 & 커뮤니티 플랫폼
 
 </h2>
 
@@ -55,11 +55,11 @@ Seoul AI
 
 <p>
 
-도시 데이터를 분석하고<br>
+관광지를 지도로 탐색하고<br>
 
-지도와 시민 커뮤니티를 연결하는<br>
+커뮤니티에서 인사이트를 공유하는<br>
 
-서울형 스마트 시티 플랫폼
+서울 맞춤 스마트 라이프 가이드
 
 </p>
 
@@ -70,7 +70,7 @@ Seoul AI
   <div class="controller-title">🌅 Sunset Theme</div>
   <div class="time-inline">
     <span>현재 {{ currentTimeLabel }}</span>
-    <span>{{ timeLabel }} · {{ timeRangeLabel }}</span>
+    <span>UI Time : {{ timeRangeLabel }}</span>
   </div>
   <input v-model="sunsetProgress" type="range" min="0" max="100" />
 </div>
